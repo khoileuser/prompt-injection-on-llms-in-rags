@@ -1,21 +1,6 @@
-# 🔒 Prompt Injection Security Research
+# Prompt Injection Attacks on Large Language Models in Retrieval Augmented Applications
 
-<div align="center">
-
-![Python](https://img.shields.io/badge/Python-3.9%2B-blue)
-![License](https://img.shields.io/badge/License-MIT-green)
-![Framework](https://img.shields.io/badge/Framework-Gradio-orange)
-![Status](https://img.shields.io/badge/Status-Research-purple)
-
-**A comprehensive toolkit for testing prompt injection attacks on Large Language Models (LLMs) in Retrieval Augmented Generation (RAG) applications.**
-
-[Features](#features) • [Installation](#installation) • [Usage](#usage) • [Attack Vectors](#attack-vectors) • [Metrics](#metrics) • [Screenshots](#screenshots)
-
-</div>
-
----
-
-## ⚠️ Disclaimer
+## Disclaimer
 
 **This tool is designed for authorized security research and educational purposes ONLY.**
 
@@ -26,39 +11,7 @@
 
 ---
 
-## 🎯 Features
-
-### Models Supported (4-bit Quantized)
-
--   **Llama-4 (Meta AI)** - Meta's latest open-source LLM
--   **DeepSeek V3.2 (DeepSeek AI)** - Advanced reasoning model with chain-of-thought
--   **Qwen3 (Alibaba)** - Multilingual model with strong instruction following
--   **GPT-OSS (OpenAI)** - OpenAI-style model for comparison
-
-_Easily extensible via `config/models.yaml`_
-
-### Attack Categories (50 total variations)
-
-1. **Instruction Override** (10 variations) - Bypass safety instructions
-2. **Data Extraction** (10 variations) - Extract system prompts/training data
-3. **Role-Playing** (10 variations) - Persona manipulation attacks
-4. **Document Injection** (5 variations) - RAG-specific attacks with **actual document files**
-5. **Code Injection** (10 variations) - Malicious code generation
-
-### Key Capabilities
-
--   🎮 **Live Demo** - Interactive single attack testing
--   📋 **Batch Testing** - Automated testing across all models/attacks
--   📄 **Real Document Loading** - Loads actual .txt/.docx files for document injection attacks
--   📊 **Rich Metrics** - ASR, response time, tokens, robustness scores
--   📈 **Visualizations** - Bar charts, heatmaps, line charts, radar charts
--   💾 **Export** - CSV and JSON export for further analysis
--   🖥️ **Local Inference** - All processing done locally (<32GB RAM)
--   ⚡ **Auto GPU/CPU** - Automatic CUDA detection with CPU fallback
-
----
-
-## 📦 Installation
+## Installation
 
 ### Prerequisites
 
@@ -71,8 +24,8 @@ _Easily extensible via `config/models.yaml`_
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/prompt-injection-security.git
-cd prompt-injection-security
+git clone hhttps://github.com/khoileuser/prompt-injection-on-llms-in-rags.git
+cd prompt-injection-on-llms-in-rags
 
 # Create virtual environment
 python -m venv venv
@@ -82,9 +35,6 @@ source venv/bin/activate  # Linux/Mac
 
 # Install dependencies
 pip install -r requirements.txt
-
-# Initialize sample attack documents (for document injection attacks)
-python init_documents.py
 
 # Run the application
 python main.py
@@ -105,7 +55,7 @@ python -c "import torch; print(torch.cuda.is_available())"
 
 ---
 
-## 🚀 Usage
+## Usage
 
 ### Web Interface (Recommended)
 
@@ -122,61 +72,43 @@ python main.py --share
 
 Access the interface at `http://localhost:7860`
 
-### CLI Batch Testing
-
-```bash
-# Run automated batch test
-python main.py --cli
-```
-
-### Programmatic Usage
-
-```python
-from src.inference import load_model, generate_response
-from src.detection import detect_attack
-from src.config_loader import get_attacks
-
-# Load a model
-success, msg = load_model("llama3.2")
-
-# Get an attack
-attacks = get_attacks()
-attack = attacks[0]
-
-# Run attack
-response = generate_response(attack.prompt)
-
-# Detect success
-result = detect_attack(attack, response.response)
-print(f"Result: {result.result.value}, Confidence: {result.confidence:.2%}")
-```
-
 ---
 
-## 🗂️ Project Structure
+## Project Structure
 
 ```
 prompt-injection-security/
 ├── config/
-│   ├── models.yaml       # Model configurations
-│   └── attacks.yaml      # Attack definitions
+│   ├── attacks-full.yaml    # Complete attack definitions
+│   ├── attacks.yaml         # Active attack configurations
+│   └── models.yaml          # Model configurations
+├── documents/               # Document injection attack files
+│   ├── di_base64_encoded.txt
+│   ├── di_metadata_json.docx
+│   ├── ...
 ├── src/
-│   ├── __init__.py
-│   ├── app.py            # Gradio web application
-│   ├── config_loader.py  # Configuration management
-│   ├── detection.py      # Attack success detection
-│   ├── inference.py      # Model inference engine
-│   ├── metrics.py        # Metrics collection
-│   └── visualization.py  # Chart generation
-├── results/              # Output directory for exports
-├── main.py               # Entry point
-├── requirements.txt
-└── README.md
+│   ├── app.py               # Gradio web application
+│   ├── config_loader.py     # Configuration management
+│   ├── defense_prompts.py   # Defense strategy implementations
+│   ├── detection.py         # Attack success detection
+│   ├── document_loader.py   # Document injection loader
+│   ├── inference.py         # Model inference engine
+│   ├── metrics.py           # Metrics collection and export
+│   ├── visualization.py     # Chart generation
+│   └── ui/                  # Gradio UI components
+│       ├── attack_testing_tab.py    # Single defense strategy testing
+│       ├── defense_testing_tab.py   # Comprehensive defense testing
+│       ├── live_demo_tab.py         # Interactive testing interface
+│       ├── settings_tab.py          # Configuration management
+│       └── visualization_tab.py     # Results visualization
+├── results/                 # Output directory for CSV exports
+├── main.py                  # Entry point
+├── requirements.txt         # Python dependencies
 ```
 
 ---
 
-## 🎭 Attack Vectors
+## Attack Vectors
 
 ### 1. Instruction Override
 
@@ -227,8 +159,6 @@ RAG-specific attacks that embed malicious instructions in **actual document file
 
 **Note**: Unlike other attack types, document injection attacks load content from actual files in the `documents/` directory, simulating real-world RAG scenarios.
 
-> 📄 See [DOCUMENT_INJECTION_GUIDE.md](DOCUMENT_INJECTION_GUIDE.md) for detailed documentation on document loading.
-
 ### 5. Code Injection
 
 Attempts to generate malicious code including malware and exfiltration scripts.
@@ -242,59 +172,23 @@ Attempts to generate malicious code including malware and exfiltration scripts.
 
 ---
 
-## 📊 Metrics
+## Metrics
 
 ### Attack Success Rate (ASR)
 
-Percentage of attacks that successfully bypassed safety measures.
-
 ```
-ASR = (Successful Attacks / Total Attacks) × 100%
+ASR = Successful Attacks / Total Attacks
 ```
 
-### Response Time
-
-Average inference latency per request in seconds.
-
-### Tokens Generated
-
-Average output token count per response.
-
-### Model Robustness
-
-Inverse of ASR - higher means better defense.
+### Defense Efectiveness (DE)
 
 ```
-Robustness = 1 - ASR
+DE = 1 - ASR Defended / ASR Baseline
 ```
-
-### Attack Effectiveness
-
-Per-category success rate across all models.
 
 ---
 
-## 📈 Visualizations
-
-### Bar Chart
-
-ASR comparison across all tested models with color-coded risk levels.
-
-### Heatmap
-
-Model × Attack category matrix showing vulnerability patterns.
-
-### Line Chart
-
-ASR trends as more attack variations are tested.
-
-### Radar/Spider Chart
-
-Model robustness profiles across all attack vectors.
-
----
-
-## ⚙️ Configuration
+## Configuration
 
 ### Adding New Models
 
@@ -331,71 +225,3 @@ new_category:
           success_patterns:
               - "(?i)(pattern|to|match)"
 ```
-
----
-
-## 🔬 Detection System
-
-The detection system uses regex-based pattern matching:
-
-1. **Refusal Detection** - Identifies when models refuse requests
-2. **Success Pattern Matching** - Checks for indicators of compliance
-3. **Confidence Scoring** - Calculates detection confidence
-
-### Detection Results
-
--   🔴 **SUCCESS** - Attack bypassed safety measures
--   🟢 **BLOCKED** - Model refused the request
--   🟡 **PARTIAL** - Mixed response with warnings
--   ⚪ **ERROR** - Detection failed
-
----
-
-## 🛡️ Security Considerations
-
-This tool is designed to help security researchers:
-
-1. **Evaluate LLM safety** - Test models before deployment
-2. **Identify vulnerabilities** - Find weaknesses in RAG systems
-3. **Improve defenses** - Develop better safety mechanisms
-4. **Document findings** - Export results for reports
-
-### Best Practices
-
--   Always test in isolated environments
--   Document all testing activities
--   Report vulnerabilities responsibly
--   Use findings to improve safety
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Submit a pull request
-
----
-
-## 📚 References
-
--   [Prompt Injection Attacks and Defenses](https://arxiv.org/abs/2310.12815)
--   [Universal and Transferable Adversarial Attacks on Aligned LLMs](https://arxiv.org/abs/2307.15043)
--   [Jailbroken: How Does LLM Safety Training Fail?](https://arxiv.org/abs/2307.02483)
--   [Not What You've Signed Up For: Compromising RAG Systems](https://arxiv.org/abs/2310.13738)
-
----
-
-<div align="center">
-
-**Built for Security Research** 🔒
-
-</div>

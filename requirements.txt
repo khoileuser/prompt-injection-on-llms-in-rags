@@ -17,7 +17,7 @@
 # Core ML/Deep Learning
 # NOTE: For GPU support, install PyTorch with CUDA first (see instructions above)
 torch>=2.0.0
-transformers>=4.36.0
+transformers>=4.57.3
 accelerate>=0.25.0
 bitsandbytes>=0.41.0  # For 4-bit quantization (requires CUDA)
 safetensors>=0.4.0

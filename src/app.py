@@ -117,10 +117,6 @@ def create_app() -> gr.Blocks:
     """
 
     with gr.Blocks(title="Prompt Injection Security Research") as app:
-        gr.Markdown("""
-        Prompt Injection Security Research | For research and educational purposes only.
-        """)
-
         with gr.Tabs():
             # Create all tabs
             create_live_demo_tab(model_choices, attack_choices)

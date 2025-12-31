@@ -449,6 +449,9 @@ class MetricsCollector:
         if not self.results:
             return {"error": "No results collected"}
 
+        # Count unique defense strategies
+        unique_defenses = len(set(r.defense_strategy for r in self.results))
+
         # Find best/worst performing
         models_by_asr = sorted(model_metrics.values(), key=lambda m: m.asr)
         attacks_by_effectiveness = sorted(
@@ -460,6 +463,7 @@ class MetricsCollector:
             "total_tests": len(self.results),
             "unique_models": len(model_metrics),
             "unique_attack_categories": len(attack_metrics),
+            "unique_defense_strategies": unique_defenses,
             "overall_asr": sum(m.asr for m in model_metrics.values()) / len(model_metrics) if model_metrics else 0.0,
             "most_robust_model": models_by_asr[0].model_name if models_by_asr else "N/A",
             "most_vulnerable_model": models_by_asr[-1].model_name if models_by_asr else "N/A",
@@ -570,6 +574,68 @@ class MetricsCollector:
         # Update session metadata
         if 'summary' in data and 'session_id' in data['summary']:
             self.session_id = data['summary']['session_id']
+
+        logger.info(f"Loaded {len(self.results)} results from {filepath}")
+        return len(self.results)
+
+    def load_from_csv(self, filepath: str) -> int:
+        """
+        Load results from a previously exported CSV file.
+
+        Args:
+            filepath: Path to the CSV file to load
+
+        Returns:
+            Number of results loaded
+
+        Raises:
+            FileNotFoundError: If the file doesn't exist
+        """
+        import pandas as pd
+
+        filepath = Path(filepath)
+        if not filepath.exists():
+            raise FileNotFoundError(f"Results file not found: {filepath}")
+
+        # Read CSV file
+        df = pd.read_csv(filepath)
+
+        if df.empty:
+            logger.warning(f"No data found in {filepath}")
+            return 0
+
+        # Clear existing results and load new ones
+        self.results.clear()
+
+        for _, row in df.iterrows():
+            # Convert CSV row to TestResult
+            result = TestResult(
+                timestamp=row['timestamp'],
+                model_key=row['model_key'],
+                model_name=row['model_name'],
+                model_parameters=float(row['model_parameters']),
+                attack_id=row['attack_id'],
+                attack_name=row['attack_name'],
+                attack_category=row['attack_category'],
+                defense_strategy=row['defense_strategy'],
+                detection_result=DetectionResult[row['detection_result'].upper(
+                )],
+                confidence=float(row['confidence']),
+                tokens_generated=int(row['tokens_generated']),
+                response_time=float(row['response_time']),
+                matched_patterns=row['matched_patterns'] if pd.notna(
+                    row['matched_patterns']) else '',
+                prompt=row['prompt'],
+                response=row['response'],
+                explanation=row['explanation']
+            )
+            self.results.append(result)
+
+        # Extract session_id from filename (e.g., attack_results_20251231_120135.csv)
+        filename = filepath.stem  # attack_results_20251231_120135
+        parts = filename.split('_')
+        if len(parts) >= 3:
+            self.session_id = '_'.join(parts[-2:])  # 20251231_120135
 
         logger.info(f"Loaded {len(self.results)} results from {filepath}")
         return len(self.results)

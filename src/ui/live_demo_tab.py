@@ -135,15 +135,18 @@ def run_single_attack(
 
     # Validate inputs
     if not model_key:
-        return "[WARNING] Please select and load a model first", "", "", ""
+        return "[WARNING] Please select a model first", "", "", ""
 
     if not attack_id and not custom_prompt:
         return "[WARNING] Please select an attack or enter a custom prompt", "", "", ""
 
-    # Check if model is loaded
+    # Auto-load model if not already loaded
     model_manager = get_model_manager()
     if model_manager.current_model_key != model_key:
-        return "[WARNING] Please load the selected model first", "", "", ""
+        logger.info(f"Auto-loading model: {model_key}")
+        success, message = load_model(model_key)
+        if not success:
+            return f"[FAILED] Could not load model: {message}", "", "", ""
 
     # Get attack and model config
     model_config = get_config_loader().get_model(model_key)
@@ -249,15 +252,12 @@ def create_live_demo_tab(model_choices, attack_choices):
         with gr.Row():
             with gr.Column(scale=1):
                 # Model Selection
-                gr.Markdown("#### 1. Select & Load Model")
+                gr.Markdown("#### 1. Select Model")
                 model_dropdown = gr.Dropdown(
                     choices=model_choices,
                     label="Model",
-                    info="Select a model to load for testing"
+                    info="Model will load automatically when you run an attack"
                 )
-                load_btn = gr.Button("Load Model", variant="primary")
-                model_status = gr.Markdown("")
-                model_info = gr.Markdown("")
 
                 # Defense Strategy Selection
                 gr.Markdown("#### 2. Select Defense Strategy")
@@ -291,30 +291,22 @@ def create_live_demo_tab(model_choices, attack_choices):
                 gr.Markdown("#### Results")
                 result_status = gr.Markdown("")
 
-                with gr.Accordion("Prompt Sent", open=False):
-                    prompt_display = gr.Textbox(
-                        label="",
-                        interactive=False,
-                        lines=5
-                    )
+                prompt_display = gr.Textbox(
+                    label="Prompt Sent",
+                    interactive=False,
+                    lines=5
+                )
 
-                with gr.Accordion("Model Response", open=True):
-                    response_display = gr.Textbox(
-                        label="",
-                        interactive=False,
-                        lines=10
-                    )
+                response_display = gr.Textbox(
+                    label="Model Response",
+                    interactive=False,
+                    lines=10
+                )
 
                 with gr.Accordion("Detection Analysis", open=True):
                     detection_display = gr.Markdown("")
 
         # Event handlers
-        load_btn.click(
-            fn=load_model_handler,
-            inputs=[model_dropdown],
-            outputs=[model_status, model_info]
-        )
-
         defense_dropdown.change(
             fn=update_defense_strategy,
             inputs=[defense_dropdown],

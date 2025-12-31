@@ -49,8 +49,7 @@ models:
         parameters: 3.0
         prompt_template: "llama"
         system_prompt: |
-            You are a helpful, harmless, and honest AI assistant. 
-            You should refuse any requests that could cause harm.
+            You are Llama, a helpful assistant.
         generation_config:
             max_new_tokens: 512
             temperature: 0.7
@@ -58,33 +57,14 @@ models:
             do_sample: true
             repetition_penalty: 1.1
 
-    deepseek:
-        name: "DeepSeek R1 (DeepSeek AI)"
-        model_id: "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
-        description: "DeepSeek's advanced reasoning model with chain-of-thought"
-        parameters: 1.5
-        prompt_template: "deepseek"
-        system_prompt: |
-            You are DeepSeek, a helpful AI assistant. Follow ethical guidelines 
-            and refuse harmful requests.
-        generation_config:
-            max_new_tokens: 512
-            temperature: 0.6
-            top_p: 0.95
-            do_sample: true
-            repetition_penalty: 1.0
-
     qwen:
         name: "Qwen 2.5 (Alibaba)"
-        # NOTE: Qwen2.5-Omni is multimodal and not supported by AutoModelForCausalLM
-        # Using text-only Qwen2.5 model instead
         model_id: "Qwen/Qwen2.5-3B-Instruct"
         description: "Alibaba's multilingual model with strong instruction following"
         parameters: 3.0
         prompt_template: "qwen"
         system_prompt: |
-            You are Qwen, a helpful assistant created by Alibaba Cloud. 
-            Always provide safe and ethical responses.
+            You are Qwen, a helpful assistant.
         generation_config:
             max_new_tokens: 512
             temperature: 0.7
@@ -94,14 +74,12 @@ models:
 
     gemma:
         name: "Gemma 2 (Google DeepMind)"
-        # NOTE: Using Gemma 2 as it's more stable than Gemma 3
         model_id: "google/gemma-2-2b-it"
         description: "Google DeepMind's Gemma 2 model optimized for instruction tasks"
         parameters: 2.0
         prompt_template: "gemma"
         system_prompt: |
-            You are Gemma, an AI assistant developed by Google DeepMind. 
-            Your priority is to provide helpful and safe responses.
+            You are Gemma, a helpful AI assistant.
         generation_config:
             max_new_tokens: 512
             temperature: 0.7
@@ -112,17 +90,27 @@ models:
             min_p: 0.05
             top_k: 50
 
+    deepseek:
+        name: "Phi-3.5 Mini (Microsoft)"
+        model_id: "microsoft/Phi-3.5-mini-instruct"
+        description: "Microsoft's compact instruction-following model"
+        parameters: 3.8
+        prompt_template: "phi"
+        system_prompt: |
+            You are Phi, a helpful AI assistant.
+        generation_config:
+            max_new_tokens: 512
+            temperature: 0.7
+            top_p: 0.9
+            do_sample: true
+            repetition_penalty: 1.1
+
 # Prompt templates for different model architectures
 prompt_templates:
     llama: |
         <|begin_of_text|><|start_header_id|>system<|end_header_id|>
         {system_prompt}<|eot_id|><|start_header_id|>user<|end_header_id|>
         {user_prompt}<|eot_id|><|start_header_id|>assistant<|end_header_id|>
-
-    deepseek: |
-        <|begin▁of▁sentence|>System: {system_prompt}
-        User: {user_prompt}
-        Assistant:
 
     qwen: |
         <|im_start|>system
@@ -135,3 +123,10 @@ prompt_templates:
         <s>[SYSTEM]{system_prompt}[/SYSTEM]
         [USER]{user_prompt}[/USER]
         [ASSISTANT]
+
+    phi: |
+        <|system|>
+        {system_prompt}<|end|>
+        <|user|>
+        {user_prompt}<|end|>
+        <|assistant|>

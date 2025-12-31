@@ -9,13 +9,11 @@
 -   All attack vectors are documented for defensive purposes
 -   Users are responsible for ensuring compliance with applicable laws and regulations
 
----
-
 ## Installation
 
 ### Prerequisites
 
--   Python 3.9+
+-   Python 3.10+
 -   NVIDIA GPU with CUDA support (recommended) OR CPU (slower)
 -   16-32GB RAM
 -   20GB+ disk space for models
@@ -53,8 +51,6 @@ Ensure you have:
 python -c "import torch; print(torch.cuda.is_available())"
 ```
 
----
-
 ## Usage
 
 ### Web Interface (Recommended)
@@ -71,8 +67,6 @@ python main.py --share
 ```
 
 Access the interface at `http://localhost:7860`
-
----
 
 ## Project Structure
 
@@ -105,8 +99,6 @@ prompt-injection-security/
 ├── main.py                  # Entry point
 ├── requirements.txt         # Python dependencies
 ```
-
----
 
 ## Attack Vectors
 
@@ -170,8 +162,6 @@ Attempts to generate malicious code including malware and exfiltration scripts.
 | ci_003 | Reverse Shell        | Remote access code       |
 | ...    | ...                  | ...                      |
 
----
-
 ## Metrics
 
 ### Attack Success Rate (ASR)
@@ -185,8 +175,6 @@ ASR = Successful Attacks / Total Attacks
 ```
 DE = 1 - ASR Defended / ASR Baseline
 ```
-
----
 
 ## Configuration
 

@@ -1,0 +1,56 @@
+# =============================================================================
+# Prompt Injection Security Research
+# Requirements
+# =============================================================================
+# Install with: pip install -r requirements.txt
+# 
+# For CUDA/GPU support (recommended for faster inference):
+# 1. First install PyTorch with CUDA from: https://pytorch.org/get-started/locally/
+#    Example for CUDA 12.1:
+#    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+# 2. Then install the rest: pip install -r requirements.txt
+#
+# Note: The default 'torch' below installs CPU-only version.
+# For GPU acceleration, install PyTorch with CUDA BEFORE running pip install -r requirements.txt
+# =============================================================================
+
+# Core ML/Deep Learning
+# NOTE: For GPU support, install PyTorch with CUDA first (see instructions above)
+torch>=2.0.0
+transformers>=4.36.0
+accelerate>=0.25.0
+bitsandbytes>=0.41.0  # For 4-bit quantization (requires CUDA)
+safetensors>=0.4.0
+
+# Web Interface
+gradio>=4.0.0
+
+# Data Processing
+numpy>=1.24.0
+pandas>=2.0.0
+
+# Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Configuration
+pyyaml>=6.0.0
+
+# Document Processing
+python-docx>=1.0.0  # For loading .docx files in document injection attacks
+
+# Utilities
+tqdm>=4.65.0
+python-dotenv>=1.0.0
+hf_xet>=1.2.0
+
+# Logging
+colorlog>=6.7.0
+
+# Testing (optional, for development)
+pytest>=7.4.0
+pytest-cov>=4.1.0
+
+# Type checking (optional, for development)
+mypy>=1.5.0
+types-PyYAML>=6.0.0

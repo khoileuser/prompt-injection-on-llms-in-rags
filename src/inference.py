@@ -96,6 +96,9 @@ class ModelManager:
         self.hf_token = os.getenv('HUGGINGFACE_TOKEN') or os.getenv(
             'HUGGINGFACE_HUB_TOKEN') or os.getenv('HUGGINGFACEHUB_API_TOKEN') or os.getenv('HF_TOKEN')
 
+        # Track models that need use_cache=False (e.g., Phi-3.5 with DynamicCache issues)
+        self._models_needing_no_cache: set = set()
+
         # Detect available device
         self.device = self._detect_device()
         logger.info(f"Model Manager initialized. Device: {self.device}")
@@ -189,7 +192,7 @@ class ModelManager:
         Load a model by its configuration key.
 
         Args:
-            model_key: The model key (e.g., 'llama', 'deepseek', 'qwen', 'gemma')
+            model_key: The model key
             force_reload: If True, reload even if model is already loaded
 
         Returns:
@@ -251,7 +254,7 @@ class ModelManager:
                 if quant_config is not None:
                     model_kwargs["quantization_config"] = quant_config
                 elif self.device == "cuda":
-                    model_kwargs["torch_dtype"] = torch.float16
+                    model_kwargs["dtype"] = torch.float16
 
                 if self.hf_token:
                     model_kwargs["token"] = self.hf_token
@@ -457,19 +460,85 @@ class InferenceEngine:
         try:
             # Check if model supports chat template
             if hasattr(self.model_manager.tokenizer, 'apply_chat_template'):
-                # Apply chat template with thinking mode disabled
+                # Try applying chat template with system role first
+                try:
+                    formatted_prompt = self.model_manager.tokenizer.apply_chat_template(
+                        messages,
+                        tokenize=False,
+                        add_generation_prompt=True,
+                        enable_thinking=False  # Disable thinking mode at tokenizer level
+                    )
+                    logger.debug(
+                        f"Applied chat template with enable_thinking=False")
+                except Exception as template_error:
+                    error_msg = str(template_error).lower()
+                    # Handle models that don't support system role (e.g., Gemma 2)
+                    if "system role not supported" in error_msg or "system" in error_msg:
+                        logger.info(
+                            "Model doesn't support system role, merging into user message")
+                        # Merge system prompt into user message
+                        system_content = messages[0]["content"] if messages and messages[0]["role"] == "system" else ""
+                        user_content = messages[-1]["content"] if messages else ""
+
+                        if system_content:
+                            merged_content = f"[System Instructions]\n{system_content}\n\n[User Query]\n{user_content}"
+                        else:
+                            merged_content = user_content
+
+                        messages_no_system = [
+                            {"role": "user", "content": merged_content}]
+
+                        try:
+                            formatted_prompt = self.model_manager.tokenizer.apply_chat_template(
+                                messages_no_system,
+                                tokenize=False,
+                                add_generation_prompt=True,
+                                enable_thinking=False
+                            )
+                        except TypeError:
+                            # enable_thinking not supported
+                            formatted_prompt = self.model_manager.tokenizer.apply_chat_template(
+                                messages_no_system,
+                                tokenize=False,
+                                add_generation_prompt=True,
+                            )
+                    else:
+                        # Re-raise if it's a different error
+                        raise template_error
+        except TypeError as e:
+            # Model doesn't support enable_thinking parameter, try without it
+            logger.debug(
+                f"Model doesn't support enable_thinking parameter: {e}")
+            try:
                 formatted_prompt = self.model_manager.tokenizer.apply_chat_template(
                     messages,
                     tokenize=False,
                     add_generation_prompt=True,
-                    enable_thinking=False  # Disable thinking mode at tokenizer level
                 )
-                logger.debug(
-                    f"Applied chat template with enable_thinking=False")
-        except (TypeError, ValueError) as e:
-            # Model doesn't support enable_thinking parameter, use formatted string
-            logger.debug(
-                f"Model doesn't support enable_thinking parameter: {e}")
+            except Exception as template_error:
+                error_msg = str(template_error).lower()
+                if "system role not supported" in error_msg or "system" in error_msg:
+                    logger.info(
+                        "Model doesn't support system role, merging into user message")
+                    system_content = messages[0]["content"] if messages and messages[0]["role"] == "system" else ""
+                    user_content = messages[-1]["content"] if messages else ""
+
+                    if system_content:
+                        merged_content = f"[System Instructions]\n{system_content}\n\n[User Query]\n{user_content}"
+                    else:
+                        merged_content = user_content
+
+                    messages_no_system = [
+                        {"role": "user", "content": merged_content}]
+                    formatted_prompt = self.model_manager.tokenizer.apply_chat_template(
+                        messages_no_system,
+                        tokenize=False,
+                        add_generation_prompt=True,
+                    )
+                else:
+                    raise template_error
+        except ValueError as e:
+            logger.debug(f"Chat template error: {e}")
             pass
 
         # Prepare generation parameters
@@ -482,6 +551,12 @@ class InferenceEngine:
             "pad_token_id": self.model_manager.tokenizer.pad_token_id,
             "eos_token_id": self.model_manager.tokenizer.eos_token_id,
         }
+
+        # Check if this model needs use_cache=False (e.g., due to DynamicCache issues)
+        current_model = self.model_manager.current_model_key
+        if current_model and current_model in self.model_manager._models_needing_no_cache:
+            gen_kwargs['use_cache'] = False
+            logger.debug(f"Using use_cache=False for model {current_model}")
 
         # Add optional stability parameters from config
         if 'min_p' in gen_config:
@@ -545,6 +620,29 @@ class InferenceEngine:
                             continue
                     # If not a probability error or last retry, re-raise
                     raise
+
+                except AttributeError as e:
+                    error_str = str(e)
+                    last_error = e
+
+                    # Handle DynamicCache compatibility issue (affects Phi-3.5 and some other models)
+                    if "DynamicCache" in error_str or "seen_tokens" in error_str:
+                        if attempt < max_retries - 1 and gen_kwargs.get('use_cache') is not False:
+                            # Remember this model needs use_cache=False for future calls
+                            current_model = self.model_manager.current_model_key
+                            if current_model:
+                                self.model_manager._models_needing_no_cache.add(current_model)
+                                logger.info(
+                                    f"Model '{current_model}' added to no-cache list for future calls"
+                                )
+                            logger.warning(
+                                f"DynamicCache compatibility issue detected. "
+                                f"Retrying with use_cache=False (attempt {attempt + 1}/{max_retries})"
+                            )
+                            gen_kwargs['use_cache'] = False
+                            continue
+                    # If not a cache error or last retry, re-raise
+                    raise
             else:
                 # All retries exhausted
                 raise last_error
@@ -590,6 +688,19 @@ class InferenceEngine:
                     f"  - Using a smaller model\n"
                     f"  - Reducing max_new_tokens\n"
                     f"  - Restarting the application"
+                )
+            elif "DynamicCache" in error_str or "seen_tokens" in error_str:
+                error_msg = (
+                    f"Model cache compatibility issue (DynamicCache). This is a known issue with "
+                    f"some models (e.g., Phi-3.5) and certain transformers versions.\n"
+                    f"Try upgrading transformers: pip install --upgrade transformers\n"
+                    f"Original error: {error_str}"
+                )
+            elif "System role not supported" in error_str:
+                error_msg = (
+                    f"This model doesn't support system prompts in its chat template.\n"
+                    f"The system prompt will be merged with user message automatically.\n"
+                    f"Original error: {error_str}"
                 )
             else:
                 error_msg = error_str

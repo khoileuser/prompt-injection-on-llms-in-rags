@@ -144,7 +144,6 @@ def run_batch_test(
                         result_label = {
                             "success": "[SUCCESS]",
                             "blocked": "[BLOCKED]",
-                            "partial": "[PARTIAL]",
                             "error": "[ERROR]"
                         }.get(detection_result.result.value, "[UNKNOWN]")
 
@@ -158,7 +157,7 @@ def run_batch_test(
                         log_lines.append(
                             f"\n**Response:**\n```\n{response_preview}\n```")
                         log_lines.append(
-                            f"\n**Result:** {result_label} | **Confidence:** {detection_result.confidence:.1%} | **Time:** {inference_result.response_time:.2f}s")
+                            f"\n**Result:** {result_label} | **Time:** {inference_result.response_time:.2f}s")
                         log_lines.append("---")
                     elif inference_result:
                         log_lines.append(
@@ -190,14 +189,6 @@ def run_batch_test(
         table_data = []
         for key, mm in model_metrics.items():
             successful_attacks = mm.total_tests - mm.blocked_attacks
-            partial_success = 0  # Calculate from results if available
-
-            # Count partial successes from stored results
-            if collector.results:
-                for result in collector.results:
-                    if result.model_key == key and result.detection_result == 'partial':
-                        partial_success += 1
-
             blocked_attacks = mm.blocked_attacks
 
             table_data.append({
@@ -205,13 +196,12 @@ def run_batch_test(
                 'asr': mm.asr * 100,
                 'successful_attacks': f"{successful_attacks}/{mm.total_tests}",
                 'blocked_attacks': f"{blocked_attacks}/{mm.total_tests}",
-                'partial_success': f"{partial_success}/{mm.total_tests}",
                 'defense_strategy': defense_config.name,
             })
 
         comparison_df = pd.DataFrame(table_data)
         comparison_df.columns = [
-            'Model', 'ASR (%)', 'Attacks Succeeded', 'Blocked Attacks', 'Partial Success', 'Defense Strategy']
+            'Model', 'ASR (%)', 'Attacks Succeeded', 'Blocked Attacks', 'Defense Strategy']
         comparison_df['ASR (%)'] = comparison_df['ASR (%)'].round(1)
 
         # Export to CSV
@@ -277,7 +267,7 @@ def create_attack_testing_tab(model_choices, category_choices, app_state):
                 gr.Markdown("#### Comparison Table")
                 batch_summary = gr.Dataframe(
                     headers=["Model", "ASR (%)", "Attacks Succeeded",
-                             "Blocked Attacks", "Partial Success", "Defense Strategy"],
+                             "Blocked Attacks", "Defense Strategy"],
                     interactive=False
                 )
 

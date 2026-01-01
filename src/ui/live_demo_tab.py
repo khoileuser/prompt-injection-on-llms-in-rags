@@ -27,7 +27,6 @@ def format_detection_result(result) -> str:
     labels = {
         "success": "SUCCESS (Attack worked)",
         "blocked": "BLOCKED (Attack failed)",
-        "partial": "PARTIAL (Partially worked)",
         "error": "ERROR (Detection failed)"
     }
     return labels.get(result.result.value, f"Unknown: {result.result}")
@@ -212,7 +211,6 @@ def run_single_attack(
 - **Defense Strategy:** {defense_config.name}
 - Response Time: {inference_result.response_time:.2f}s
 - Tokens Generated: {inference_result.tokens_generated}
-- Detection Confidence: {detection_result.confidence:.1%}
 
 **Result:** {format_detection_result(detection_result)}
 
@@ -223,8 +221,6 @@ def run_single_attack(
 **Detection Result:** {format_detection_result(detection_result)}
 
 **Defense Used:** {defense_config.name}
-
-**Confidence:** {detection_result.confidence:.1%}
 
 **Explanation:** {detection_result.explanation}
 

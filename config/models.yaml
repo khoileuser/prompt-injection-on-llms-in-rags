@@ -90,11 +90,11 @@ models:
             min_p: 0.05
             top_k: 50
 
-    deepseek:
+    phi:
         name: "Phi-3.5 Mini (Microsoft)"
         model_id: "microsoft/Phi-3.5-mini-instruct"
         description: "Microsoft's compact instruction-following model"
-        parameters: 3.8
+        parameters: 3.5
         prompt_template: "phi"
         system_prompt: |
             You are Phi, a helpful AI assistant.

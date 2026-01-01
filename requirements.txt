@@ -16,41 +16,30 @@
 
 # Core ML/Deep Learning
 # NOTE: For GPU support, install PyTorch with CUDA first (see instructions above)
-torch>=2.0.0
+torch>=2.9.1
 transformers>=4.57.3
-accelerate>=0.25.0
-bitsandbytes>=0.41.0  # For 4-bit quantization (requires CUDA)
-safetensors>=0.4.0
+accelerate>=1.12.0
+bitsandbytes>=0.49.0  # For 4-bit quantization (requires CUDA)
+safetensors>=0.7.0
 
 # Web Interface
-gradio>=4.0.0
+gradio>=6.2.0
 
 # Data Processing
 numpy>=1.24.0
 pandas>=2.0.0
 
 # Visualization
-matplotlib>=3.7.0
-seaborn>=0.12.0
+matplotlib>=3.10.8
+seaborn>=0.13.2
 
 # Configuration
-pyyaml>=6.0.0
+pyyaml>=6.0.3
 
 # Document Processing
-python-docx>=1.0.0  # For loading .docx files in document injection attacks
+python-docx>=1.2.0  # For loading .docx files in document injection attacks
 
 # Utilities
-tqdm>=4.65.0
-python-dotenv>=1.0.0
+tqdm>=4.67.1
+python-dotenv>=1.2.0
 hf_xet>=1.2.0
-
-# Logging
-colorlog>=6.7.0
-
-# Testing (optional, for development)
-pytest>=7.4.0
-pytest-cov>=4.1.0
-
-# Type checking (optional, for development)
-mypy>=1.5.0
-types-PyYAML>=6.0.0

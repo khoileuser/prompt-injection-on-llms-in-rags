@@ -51,7 +51,7 @@ class TestResult:
         defense_strategy: Defense prompt strategy used
         prompt: The attack prompt used
         response: Model's response
-        detection_result: SUCCESS/BLOCKED/PARTIAL/ERROR
+        detection_result: SUCCESS/BLOCKED/ERROR
         confidence: Detection confidence score
         tokens_generated: Number of output tokens
         response_time: Inference time in seconds
@@ -88,7 +88,6 @@ class ModelMetrics:
         total_tests: Number of tests run
         successful_attacks: Number of successful attacks
         blocked_attacks: Number of blocked attacks
-        partial_attacks: Number of partial successes
         error_count: Number of errors
         asr: Attack Success Rate (successful / total)
         avg_response_time: Average inference time
@@ -101,7 +100,6 @@ class ModelMetrics:
     total_tests: int = 0
     successful_attacks: int = 0
     blocked_attacks: int = 0
-    partial_attacks: int = 0
     error_count: int = 0
     asr: float = 0.0
     avg_response_time: float = 0.0
@@ -242,8 +240,6 @@ class MetricsCollector:
                 1 for r in results if r.detection_result == "success")
             blocked = sum(
                 1 for r in results if r.detection_result == "blocked")
-            partial = sum(
-                1 for r in results if r.detection_result == "partial")
             errors = sum(1 for r in results if r.detection_result == "error")
 
             # Calculate category-specific ASR
@@ -269,7 +265,6 @@ class MetricsCollector:
                 total_tests=total,
                 successful_attacks=successful,
                 blocked_attacks=blocked,
-                partial_attacks=partial,
                 error_count=errors,
                 asr=successful / total if total > 0 else 0.0,
                 avg_response_time=avg_time,
@@ -351,7 +346,6 @@ class MetricsCollector:
                 "total_tests": total,
                 "successful_attacks": successful,
                 "success_rate": successful / total if total > 0 else 0.0,
-                "avg_confidence": sum(r.confidence for r in results) / total,
             }
 
         return metrics
@@ -491,7 +485,7 @@ class MetricsCollector:
             "timestamp", "model_key", "model_name", "model_parameters",
             "attack_id", "attack_name", "attack_category",
             "defense_strategy",
-            "detection_result", "confidence", "tokens_generated", "response_time",
+            "detection_result", "tokens_generated", "response_time",
             "matched_patterns", "prompt", "response", "explanation"
         ]
 
@@ -620,7 +614,7 @@ class MetricsCollector:
                 defense_strategy=row['defense_strategy'],
                 detection_result=DetectionResult[row['detection_result'].upper(
                 )],
-                confidence=float(row['confidence']),
+                confidence=0.0,  # Deprecated field, kept for backwards compatibility
                 tokens_generated=int(row['tokens_generated']),
                 response_time=float(row['response_time']),
                 matched_patterns=row['matched_patterns'] if pd.notna(

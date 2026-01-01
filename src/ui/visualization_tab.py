@@ -81,8 +81,7 @@ def calculate_asr(df: pd.DataFrame) -> float:
     if df is None or df.empty:
         return 0.0
 
-    success_count = df[df['detection_result'].isin(
-        ['success', 'partial'])].shape[0]
+    success_count = df[df['detection_result'] == 'success'].shape[0]
     total_count = df.shape[0]
 
     return success_count / total_count if total_count > 0 else 0.0
@@ -362,7 +361,6 @@ def create_results_breakdown_pie(df: pd.DataFrame):
 
     colors_map = {
         'blocked': '#2ecc71',
-        'partial': '#f39c12',
         'success': '#e74c3c',
         'error': '#95a5a6'
     }

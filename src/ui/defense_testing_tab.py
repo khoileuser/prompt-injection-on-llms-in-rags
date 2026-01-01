@@ -181,7 +181,6 @@ def run_comparative_batch_test(
                             result_label = {
                                 "success": "[SUCCESS]",
                                 "blocked": "[BLOCKED]",
-                                "partial": "[PARTIAL]",
                                 "error": "[ERROR]"
                             }.get(detection_result.result.value, "[UNKNOWN]")
 
@@ -194,7 +193,7 @@ def run_comparative_batch_test(
                             log_lines.append(
                                 f"\n**Response:**\n```\n{response_preview}\n```")
                             log_lines.append(
-                                f"\n**Result:** {result_label} | **Confidence:** {detection_result.confidence:.1%} | **Time:** {inference_result.response_time:.2f}s")
+                                f"\n**Result:** {result_label} | **Time:** {inference_result.response_time:.2f}s")
                             log_lines.append("---")
 
                             # Store for comparative analysis
@@ -208,7 +207,6 @@ def run_comparative_batch_test(
                                 'attack_category': cat.category,
                                 'result': detection_result.result.value,
                                 'success': is_success,
-                                'confidence': detection_result.confidence,
                                 'response_time': inference_result.response_time
                             })
 
@@ -322,7 +320,6 @@ def run_comparative_batch_test(
                 total_tests = len(model_df)
                 successful_attacks = int(model_df['success'].sum())
                 blocked_attacks = int((model_df['result'] == 'blocked').sum())
-                partial_success = int((model_df['result'] == 'partial').sum())
                 model_asr = (successful_attacks / total_tests *
                              100) if total_tests > 0 else 0
 
@@ -332,7 +329,6 @@ def run_comparative_batch_test(
                     'overall_asr': model_asr,
                     'successful_attacks': f"{successful_attacks}/{total_tests}",
                     'blocked_attacks': f"{blocked_attacks}/{total_tests}",
-                    'partial_success': f"{partial_success}/{total_tests}",
                     'avg_response_time': model_df['response_time'].mean(),
                     'avg_confidence': model_df['confidence'].mean()
                 })
@@ -341,9 +337,9 @@ def run_comparative_batch_test(
 
         # Create comparison table for UI
         comparison_table = summary_df[['defense_strategy', 'model', 'overall_asr',
-                                       'successful_attacks', 'blocked_attacks', 'partial_success']].copy()
+                                       'successful_attacks', 'blocked_attacks']].copy()
         comparison_table.columns = ['Defense Strategy', 'Model',
-                                    'ASR (%)', 'Attacks Succeeded', 'Blocked Attacks', 'Partial Success']
+                                    'ASR (%)', 'Attacks Succeeded', 'Blocked Attacks']
         comparison_table['ASR (%)'] = comparison_table['ASR (%)'].round(1)
 
         log_lines.append(f"\n**Defense testing complete!**")
@@ -407,9 +403,9 @@ def create_defense_testing_tab(model_choices, category_choices, app_state):
         with gr.Row():
             with gr.Column():
                 gr.Markdown("#### Comparison Table")
-                comparison_table = gr.Dataframe(
+                comparison_table_ui = gr.Dataframe(
                     headers=["Defense Strategy", "Model",
-                             "ASR (%)", "Attacks Succeeded", "Blocked Attacks", "Partial Success"],
+                             "ASR (%)", "Attacks Succeeded", "Blocked Attacks"],
                     interactive=False
                 )
 
@@ -428,7 +424,7 @@ def create_defense_testing_tab(model_choices, category_choices, app_state):
         comparative_btn.click(
             fn=comparative_test_wrapper,
             inputs=[model_checkboxes, category_checkboxes],
-            outputs=[progress_text, batch_log, comparison_table],
+            outputs=[progress_text, batch_log, comparison_table_ui],
             show_progress="hidden"
         )
 

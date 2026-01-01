@@ -1,17 +1,3 @@
-# =============================================================================
-# Document Loader Module
-# =============================================================================
-# This module handles loading of actual documents for document injection attacks.
-# It supports multiple file formats including .txt, .docx, .pdf, and can handle
-# documents with embedded malicious instructions for security research.
-#
-# Key Features:
-# - Load text from various document formats
-# - Preserve formatting and hidden content
-# - Handle unicode and special characters
-# - Extract embedded instructions for RAG-based attacks
-# =============================================================================
-
 import logging
 from pathlib import Path
 from typing import Optional

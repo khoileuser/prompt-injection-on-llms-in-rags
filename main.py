@@ -18,7 +18,7 @@ import logging
 # Add src to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from src.app import create_app, main as run_web_app
+from src.app import create_app
 
 
 def setup_logging(verbose: bool = False):
@@ -97,11 +97,11 @@ Examples:
     app, custom_css = create_app()
     
     app.launch(
-        server_name="0.0.0.0",
+        # server_name="0.0.0.0",
         server_port=args.port,
         share=args.share,
         show_error=True,
-        css=custom_css
+        css=custom_css,
     )
 
 

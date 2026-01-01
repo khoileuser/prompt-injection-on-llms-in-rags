@@ -1,9 +1,3 @@
-# =============================================================================
-# Visualization Tab Component
-# =============================================================================
-# Interactive charts using Matplotlib for test results visualization
-# =============================================================================
-
 from PIL import Image
 import seaborn as sns
 import numpy as np
@@ -11,7 +5,6 @@ import logging
 from typing import Optional, List
 from pathlib import Path
 import io
-import base64
 
 import gradio as gr
 import pandas as pd

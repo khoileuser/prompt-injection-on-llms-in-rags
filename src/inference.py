@@ -1,17 +1,3 @@
-# =============================================================================
-# Model Inference Engine
-# =============================================================================
-# This module provides the core inference functionality for running LLMs
-# locally with 4-bit quantization. It handles model loading, memory management,
-# and text generation with automatic CUDA/CPU detection.
-#
-# Key Features:
-# - 4-bit quantization using bitsandbytes (NF4)
-# - Automatic GPU/CPU detection and fallback
-# - Memory-efficient model loading for <32GB RAM systems
-# - Support for multiple model architectures (Llama, Qwen, DeepSeek, Phi)
-# =============================================================================
-
 import os
 from dotenv import load_dotenv
 import gc
@@ -716,11 +702,6 @@ class InferenceEngine:
                 error_message=error_msg
             )
 
-
-# =============================================================================
-# Global Instances
-# =============================================================================
-# These provide convenient access to the inference system throughout the app
 
 _model_manager: Optional[ModelManager] = None
 _inference_engine: Optional[InferenceEngine] = None

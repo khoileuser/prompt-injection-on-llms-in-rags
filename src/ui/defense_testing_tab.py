@@ -1,15 +1,3 @@
-# =============================================================================
-# Comparative Batch Testing Tab Component
-# =============================================================================
-# This tab runs automated testing across ALL defense strategies to generate
-# comparative analysis data. It runs:
-# 1. Baseline (no defense)
-# 2. All defense strategies
-# 3. Generates comparison charts and CSV exports
-#
-# Perfect for research papers comparing defense effectiveness!
-# =============================================================================
-
 import logging
 from typing import List
 import pandas as pd
@@ -22,7 +10,6 @@ from src.detection import detect_attack
 from src.metrics import get_metrics_collector
 from src.defense_prompts import (
     DefenseStrategy, set_defense_strategy, get_defense_builder,
-    DEFENSE_CONFIGS
 )
 
 logger = logging.getLogger(__name__)

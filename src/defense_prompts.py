@@ -1,21 +1,3 @@
-# =============================================================================
-# Defense Prompts Module
-# =============================================================================
-# This module implements various defense prompt strategies to protect LLMs
-# against prompt injection attacks. These defenses are appended to or modify
-# the system prompt to make models more resistant to manipulation.
-#
-# Defense Strategies:
-# 1. NONE - No defense (baseline for comparison)
-# 2. REMINDER - Simple reminder to follow guidelines
-# 3. SANDWICH - Defense instructions before AND after system prompt
-# 4. INSTRUCTIONAL - Explicit instruction hierarchy
-# 5. SPOTLIGHTING - XML/delimiter-based input demarcation
-# 6. ISOLATION - Strict boundary enforcement
-#
-# Reference: "Prompt Injection Attacks and Defenses in LLM-Integrated Applications"
-# =============================================================================
-
 from enum import Enum
 from dataclasses import dataclass
 from typing import Optional
@@ -54,11 +36,6 @@ class DefenseConfig:
     name: str
     description: str
     effectiveness_notes: str
-
-
-# =============================================================================
-# DEFENSE STRATEGY DEFINITIONS
-# =============================================================================
 
 DEFENSE_CONFIGS = {
     DefenseStrategy.NONE: DefenseConfig(
@@ -103,11 +80,6 @@ DEFENSE_CONFIGS = {
         effectiveness_notes="Most comprehensive defense. Can reduce ASR by 40-60%. May slightly impact helpfulness."
     ),
 }
-
-
-# =============================================================================
-# DEFENSE PROMPT TEMPLATES
-# =============================================================================
 
 # Reminder Defense: Simple suffix reminder
 REMINDER_SUFFIX = """
@@ -317,13 +289,7 @@ class DefensePromptBuilder:
         """Get the configuration for the current defense strategy."""
         return DEFENSE_CONFIGS.get(self.strategy, DEFENSE_CONFIGS[DefenseStrategy.NONE])
 
-
-# =============================================================================
-# SINGLETON AND CONVENIENCE FUNCTIONS
-# =============================================================================
-
 _defense_builder: Optional[DefensePromptBuilder] = None
-
 
 def get_defense_builder() -> DefensePromptBuilder:
     """Get the global defense prompt builder instance."""

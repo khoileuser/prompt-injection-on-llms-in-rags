@@ -1,13 +1,8 @@
-# =============================================================================
-# Settings Tab Component
-# =============================================================================
-
 import gradio as gr
 
 from src.config_loader import get_models, get_attacks, get_attack_categories
 from src.metrics import get_metrics_collector
 from src.detection import (
-    get_detector,
     set_detection_method,
     DETECTION_METHODS,
 )

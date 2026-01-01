@@ -1,21 +1,7 @@
-# =============================================================================
-# Visualization Module
-# =============================================================================
-# This module generates charts and visualizations for the security research
-# metrics. It creates publication-quality figures suitable for research papers
-# and presentations.
-#
-# Chart Types:
-# 1. Bar Chart: ASR comparison across models
-# 2. Heatmap: Model x Attack category success rates
-# 3. Line Chart: ASR trends across attack variations
-# 4. Radar/Spider Chart: Model robustness profiles
-# =============================================================================
-
 import io
 import base64
 import warnings
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, Optional, Any
 import logging
 
 import numpy as np
@@ -581,7 +567,6 @@ class Visualizer:
         summary = self.collector.get_summary()
         summary_text = f"""
 SUMMARY STATISTICS
-==================
 
 Total Tests: {summary.get('total_tests', 0)}
 Models Tested: {summary.get('unique_models', 0)}
@@ -607,10 +592,6 @@ Least Effective Attack: {summary.get('least_effective_attack', 'N/A')}
         
         return self._fig_to_base64(fig) if as_base64 else fig
 
-
-# =============================================================================
-# Global Instance
-# =============================================================================
 
 _visualizer: Optional[Visualizer] = None
 

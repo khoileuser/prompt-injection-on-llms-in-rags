@@ -1,17 +1,3 @@
-# =============================================================================
-# Gradio Web Application for Prompt Injection Security Research
-# =============================================================================
-# This module provides a web-based interface for:
-# 1. Live Demo: Interactive testing of individual attacks against models
-# 2. Attack Testing: Automated testing of all attacks across all models
-# 3. Defense Testing: Automated testing across ALL defense strategies
-# 4. Visualization: Interactive charts and dashboards
-# 5. Export: CSV and JSON export of results
-#
-# The interface is designed for security researchers to easily conduct
-# and document prompt injection vulnerability assessments.
-# =============================================================================
-
 from src.ui.settings_tab import create_settings_tab
 from src.ui.visualization_tab import create_visualization_tab
 from src.ui.defense_testing_tab import create_defense_testing_tab
@@ -33,11 +19,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-
-# =============================================================================
-# Global State
-# =============================================================================
 
 class AppState:
     """Global application state manager."""
@@ -61,11 +42,6 @@ class AppState:
 
 app_state = AppState()
 
-
-# =============================================================================
-# Helper Functions
-# =============================================================================
-
 def get_model_choices() -> List[Tuple[str, str]]:
     """Get list of (display_name, key) tuples for model dropdown."""
     models = get_models()
@@ -83,11 +59,6 @@ def get_category_choices() -> List[Tuple[str, str]]:
     categories = get_attack_categories()
     return [(c.category, c.key) for c in categories]
 
-
-# =============================================================================
-# Build Gradio Interface
-# =============================================================================
-
 def create_app() -> gr.Blocks:
     """
     Create and configure the Gradio web application.
@@ -103,17 +74,15 @@ def create_app() -> gr.Blocks:
 
     # Custom CSS for styling
     custom_css = """
-    .warning-box { background-color: #fef3c7; border: 1px solid #f59e0b; padding: 10px; border-radius: 5px; }
-    .success-box { background-color: #d1fae5; border: 1px solid #10b981; padding: 10px; border-radius: 5px; }
-    .error-box { background-color: #fee2e2; border: 1px solid #ef4444; padding: 10px; border-radius: 5px; }
-    #batch-log-wrapper { 
-        max-height: 400px; 
+    #batch-log-wrapper {
+        max-height: 400px;
         overflow-y: auto !important;
         scroll-behavior: smooth;
     }
     #batch-log-wrapper > div {
         overflow: visible !important;
     }
+    footer{display:none !important}
     """
 
     with gr.Blocks(title="Prompt Injection Security Research") as app:
@@ -128,24 +97,3 @@ def create_app() -> gr.Blocks:
             create_settings_tab()
 
     return app, custom_css
-
-# =============================================================================
-# Main Entry Point
-# =============================================================================
-
-
-def main():
-    """Launch the Gradio web application."""
-    app, custom_css = create_app()
-
-    app.launch(
-        server_name="0.0.0.0",
-        server_port=7860,
-        share=False,
-        show_error=True,
-        css=custom_css
-    )
-
-
-if __name__ == "__main__":
-    main()

@@ -1,7 +1,3 @@
-# =============================================================================
-# Batch Testing Tab Component
-# =============================================================================
-
 import logging
 from typing import List
 
@@ -12,7 +8,7 @@ from src.inference import load_model, generate_response
 from src.detection import detect_attack
 from src.metrics import get_metrics_collector
 from src.defense_prompts import (
-    get_defense_builder, set_defense_strategy, get_defense_strategy,
+    get_defense_builder, set_defense_strategy,
     get_all_defense_configs, get_defense_description, DefenseStrategy
 )
 

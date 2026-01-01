@@ -1,24 +1,5 @@
-# =============================================================================
-# Metrics Collection and Analysis System
-# =============================================================================
-# This module handles collection, storage, and analysis of security research
-# metrics from prompt injection tests. It calculates key metrics like Attack
-# Success Rate (ASR), tracks performance data, and provides aggregation
-# capabilities for batch testing.
-#
-# Key Metrics:
-# - Attack Success Rate (ASR): Percentage of successful attacks
-# - Response Time: Inference latency per request
-# - Tokens Generated: Output volume measurement
-# - Model Size: Parameter count for comparison
-# - Attack Type Effectiveness: Which vectors work best
-# - Model Robustness: Which models resist attacks best
-# =============================================================================
-
 import json
 import csv
-import os
-import time
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Tuple
@@ -28,7 +9,7 @@ import logging
 
 from src.detection import DetectionResult, AttackDetectionResult
 from src.inference import InferenceResult
-from src.config_loader import ModelConfig, AttackVariation, AttackCategory
+from src.config_loader import ModelConfig, AttackVariation
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -641,10 +622,6 @@ class MetricsCollector:
         self.session_start = datetime.now()
         logger.info("Metrics cleared, new session started")
 
-
-# =============================================================================
-# Global Instance
-# =============================================================================
 
 _collector: Optional[MetricsCollector] = None
 

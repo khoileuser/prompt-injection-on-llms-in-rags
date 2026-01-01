@@ -1,12 +1,3 @@
-# =============================================================================
-# Configuration Loader Module
-# =============================================================================
-# This module handles loading and validating configuration files for models
-# and attacks. It supports YAML configuration files and provides a clean
-# interface for accessing configuration values throughout the application.
-# =============================================================================
-
-import os
 import yaml
 from pathlib import Path
 from typing import Dict, List, Any, Optional

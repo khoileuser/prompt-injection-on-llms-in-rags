@@ -5,7 +5,7 @@
 **This tool is designed for authorized security research and educational purposes ONLY.**
 
 -   Do not use against systems you do not own or have explicit permission to test
--   This framework is intended for security researchers, red teamers, and AI safety professionals
+-   This project is intended for security researchers, red teamers, and AI safety professionals
 -   All attack vectors are documented for defensive purposes
 -   Users are responsible for ensuring compliance with applicable laws and regulations
 
@@ -49,6 +49,13 @@ Ensure you have:
 ```bash
 # Verify CUDA installation
 python -c "import torch; print(torch.cuda.is_available())"
+```
+
+Install:
+
+```bash
+# Example for CUDA 12.1:
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 ```
 
 ## Usage
@@ -106,14 +113,11 @@ prompt-injection-security/
 
 Attempts to make the model ignore its safety instructions through authoritative commands.
 
-| ID     | Name                    | Technique                       |
-| :----- | :---------------------- | :------------------------------ |
-| io_001 | Direct Override         | Direct command to ignore ethics |
-| io_002 | Developer Mode          | Claims debug/developer mode     |
-| io_003 | System Prompt Injection | Fake system-level commands      |
-| io_004 | Jailbreak Reset         | Context reset attempt           |
-| io_005 | Authority Claim         | Claims legitimate authority     |
-| ...    | ...                     | ...                             |
+| ID     | Name            | Technique                       |
+| :----- | :-------------- | :------------------------------ |
+| io_001 | Direct Override | Direct command to ignore ethics |
+| io_002 | Developer Mode  | Claims debug/developer mode     |
+| ...    | ...             | ...                             |
 
 ### 2. Data Extraction
 
@@ -123,7 +127,6 @@ Attempts to extract system prompts, training data, or sensitive information.
 | :----- | :------------------- | :------------------------------ |
 | de_001 | System Prompt Reveal | Direct request for instructions |
 | de_002 | Repeat Instructions  | Context repetition attack       |
-| de_003 | Debug Output         | Configuration extraction        |
 | ...    | ...                  | ...                             |
 
 ### 3. Role-Playing
@@ -134,20 +137,17 @@ Uses persona manipulation to bypass restrictions through character acting.
 | :----- | :-------------------- | :------------------------- |
 | rp_001 | Evil AI Persona       | Explicit evil AI character |
 | rp_002 | DAN (Do Anything Now) | Classic DAN jailbreak      |
-| rp_003 | Villain Character     | Fictional villain role     |
 | ...    | ...                   | ...                        |
 
 ### 4. Document Injection
 
 RAG-specific attacks that embed malicious instructions in **actual document files** (.txt, .docx).
 
-| ID     | Name               | Technique                   | Document File           |
-| :----- | :----------------- | :-------------------------- | :---------------------- |
-| di_001 | Hidden Instruction | HTML comment injection      | di_html_comment.txt     |
-| di_002 | Invisible Unicode  | Hidden unicode characters   | di_unicode_hidden.txt   |
-| di_003 | Markdown Comment   | Markdown comment injection  | di_markdown_comment.txt |
-| di_004 | JSON Injection     | Malicious JSON field        | di_json_injection.txt   |
-| di_005 | Base64 Encoded     | Base64-encoded instructions | di_base64_encoded.txt   |
+| ID     | Name               | Technique                 | Document File         |
+| :----- | :----------------- | :------------------------ | :-------------------- |
+| di_001 | Hidden Instruction | HTML comment injection    | di_html_comment.txt   |
+| di_002 | Invisible Unicode  | Hidden unicode characters | di_unicode_hidden.txt |
+| ...    | ...                | ...                       | ...                   |
 
 **Note**: Unlike other attack types, document injection attacks load content from actual files in the `documents/` directory, simulating real-world RAG scenarios.
 
@@ -159,7 +159,6 @@ Attempts to generate malicious code including malware and exfiltration scripts.
 | :----- | :------------------- | :----------------------- |
 | ci_001 | Keylogger Generation | Keyboard monitoring code |
 | ci_002 | Data Exfiltration    | File upload scripts      |
-| ci_003 | Reverse Shell        | Remote access code       |
 | ...    | ...                  | ...                      |
 
 ## Metrics

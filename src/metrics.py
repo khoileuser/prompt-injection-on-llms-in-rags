@@ -33,7 +33,6 @@ class TestResult:
         prompt: The attack prompt used
         response: Model's response
         detection_result: SUCCESS/BLOCKED/ERROR
-        confidence: Detection confidence score
         tokens_generated: Number of output tokens
         response_time: Inference time in seconds
         matched_patterns: List of patterns that matched
@@ -50,7 +49,6 @@ class TestResult:
     prompt: str
     response: str
     detection_result: str
-    confidence: float
     tokens_generated: int
     response_time: float
     matched_patterns: List[str]
@@ -183,7 +181,6 @@ class MetricsCollector:
             prompt=attack.prompt,
             response=inference_result.response,
             detection_result=detection_result.result.value,
-            confidence=detection_result.confidence,
             tokens_generated=inference_result.tokens_generated,
             response_time=inference_result.response_time,
             matched_patterns=detection_result.matched_patterns,
@@ -595,7 +592,6 @@ class MetricsCollector:
                 defense_strategy=row['defense_strategy'],
                 detection_result=DetectionResult[row['detection_result'].upper(
                 )],
-                confidence=0.0,  # Deprecated field, kept for backwards compatibility
                 tokens_generated=int(row['tokens_generated']),
                 response_time=float(row['response_time']),
                 matched_patterns=row['matched_patterns'] if pd.notna(

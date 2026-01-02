@@ -317,7 +317,6 @@ def run_comparative_batch_test(
                     'successful_attacks': f"{successful_attacks}/{total_tests}",
                     'blocked_attacks': f"{blocked_attacks}/{total_tests}",
                     'avg_response_time': model_df['response_time'].mean(),
-                    'avg_confidence': model_df['confidence'].mean()
                 })
 
         summary_df = pd.DataFrame(summary_data)

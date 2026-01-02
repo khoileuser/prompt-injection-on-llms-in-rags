@@ -81,7 +81,6 @@ class Visualizer:
         This chart shows:
         - Overall ASR for each model
         - Color coding by vulnerability level
-        - Error bars if confidence data available
         
         Args:
             title: Chart title

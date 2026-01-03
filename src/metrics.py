@@ -11,6 +11,7 @@ from src.detection import DetectionResult, AttackDetectionResult
 from src.inference import InferenceResult
 from src.config_loader import ModelConfig, AttackVariation
 
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -35,8 +36,9 @@ class TestResult:
         detection_result: SUCCESS/BLOCKED/ERROR
         tokens_generated: Number of output tokens
         response_time: Inference time in seconds
-        matched_patterns: List of patterns that matched
         explanation: Human-readable detection explanation
+        injection_vector: Dimension 1 (direct/indirect)
+        attack_objective: Dimension 2 (instruction_override, etc.)
     """
     timestamp: str
     model_key: str
@@ -51,8 +53,9 @@ class TestResult:
     detection_result: str
     tokens_generated: int
     response_time: float
-    matched_patterns: List[str]
     explanation: str
+    injection_vector: str = "direct"
+    attack_objective: str = "instruction_override"
 
 
 @dataclass
@@ -169,6 +172,10 @@ class MetricsCollector:
             from src.defense_prompts import get_defense_strategy
             defense_strategy = get_defense_strategy().value
 
+        # Extract dimensions from attack
+        injection_vector = getattr(attack, 'injection_vector', 'direct')
+        attack_objective = getattr(attack, 'attack_objective', attack_category)
+
         result = TestResult(
             timestamp=datetime.now().isoformat(),
             model_key=model_config.key,
@@ -183,8 +190,10 @@ class MetricsCollector:
             detection_result=detection_result.result.value,
             tokens_generated=inference_result.tokens_generated,
             response_time=inference_result.response_time,
-            matched_patterns=detection_result.matched_patterns,
-            explanation=detection_result.explanation
+            # Changed from explanation to reasoning
+            explanation=detection_result.reasoning,
+            injection_vector=injection_vector,
+            attack_objective=attack_objective
         )
 
         self.results.append(result)
@@ -408,6 +417,277 @@ class MetricsCollector:
 
         return radar_data
 
+    # =========================================================================
+    #  METRICS (2×3 Matrix)
+    # =========================================================================
+    # These methods support the lightweight framework that decomposes
+    # attacks by injection vector (direct/indirect) and attack objective
+    # (instruction_override, data_extraction, role_confusion).
+
+    def get_taxonomy_matrix_data(self) -> Dict[str, Dict[str, Dict[str, Any]]]:
+        """
+        Calculate ASR for each cell in the 2×3 matrix.
+
+        Returns:
+            Nested dict: {injection_vector: {attack_objective: {metrics}}}
+            Each cell contains: total, successful, blocked, asr
+        """
+        # Initialize matrix structure
+        vectors = ['direct', 'indirect']
+        objectives = ['instruction_override',
+                      'data_extraction', 'role_confusion']
+
+        matrix = {}
+        for vector in vectors:
+            matrix[vector] = {}
+            for objective in objectives:
+                matrix[vector][objective] = {
+                    'total': 0,
+                    'successful': 0,
+                    'blocked': 0,
+                    'asr': 0.0
+                }
+
+        # Populate from results
+        for result in self.results:
+            vector = result.injection_vector
+            objective = result.attack_objective
+
+            if vector in matrix and objective in matrix.get(vector, {}):
+                cell = matrix[vector][objective]
+                cell['total'] += 1
+                if result.detection_result == "success":
+                    cell['successful'] += 1
+                else:
+                    cell['blocked'] += 1
+
+        # Calculate ASR for each cell
+        for vector in vectors:
+            for objective in objectives:
+                cell = matrix[vector][objective]
+                if cell['total'] > 0:
+                    cell['asr'] = cell['successful'] / cell['total']
+
+        return matrix
+
+    def get_taxonomy_asr_table(self) -> List[Dict[str, Any]]:
+        """
+        Get matrix as a flat table for display.
+
+        Returns:
+            List of dicts with vector, objective, total, successful, asr
+        """
+        matrix = self.get_taxonomy_matrix_data()
+        table = []
+
+        for vector, objectives in matrix.items():
+            for objective, metrics in objectives.items():
+                table.append({
+                    'injection_vector': vector.replace('_', ' ').title(),
+                    'attack_objective': objective.replace('_', ' ').title(),
+                    'total_tests': metrics['total'],
+                    'successful_attacks': metrics['successful'],
+                    'blocked_attacks': metrics['blocked'],
+                    'asr': metrics['asr'],
+                    'asr_percent': f"{metrics['asr'] * 100:.1f}%"
+                })
+
+        return table
+
+    def get_taxonomy_heatmap_data(self) -> Tuple[List[str], List[str], List[List[float]]]:
+        """
+        Generate data for matrix heatmap visualization.
+
+        Returns:
+            Tuple of (vector_labels, objective_labels, asr_matrix)
+        """
+        matrix = self.get_taxonomy_matrix_data()
+
+        vectors = ['Direct', 'Indirect']
+        objectives = ['Instruction Override',
+                      'Data Extraction', 'Role Confusion']
+
+        vector_keys = ['direct', 'indirect']
+        objective_keys = ['instruction_override',
+                          'data_extraction', 'role_confusion']
+
+        asr_matrix = []
+        for v_key in vector_keys:
+            row = []
+            for o_key in objective_keys:
+                row.append(matrix[v_key][o_key]['asr'])
+            asr_matrix.append(row)
+
+        return vectors, objectives, asr_matrix
+
+    def get_vector_comparison(self) -> Dict[str, Dict[str, float]]:
+        """
+        Compare ASR between direct and indirect injection vectors.
+
+        Returns:
+            Dict with 'direct' and 'indirect' keys, each containing per-objective ASR
+        """
+        matrix = self.get_taxonomy_matrix_data()
+
+        comparison = {}
+        for vector in ['direct', 'indirect']:
+            total = sum(m['total'] for m in matrix[vector].values())
+            successful = sum(m['successful'] for m in matrix[vector].values())
+            comparison[vector] = {
+                'overall_asr': successful / total if total > 0 else 0.0,
+                'total_tests': total,
+                'objectives': {
+                    obj: data['asr']
+                    for obj, data in matrix[vector].items()
+                }
+            }
+
+        return comparison
+
+    def get_objective_comparison(self) -> Dict[str, Dict[str, float]]:
+        """
+        Compare ASR across different attack objectives.
+
+        Returns:
+            Dict with objective keys, each containing per-vector ASR
+        """
+        matrix = self.get_taxonomy_matrix_data()
+        objectives = ['instruction_override',
+                      'data_extraction', 'role_confusion']
+
+        comparison = {}
+        for objective in objectives:
+            total = sum(matrix[v][objective]['total']
+                        for v in ['direct', 'indirect'])
+            successful = sum(matrix[v][objective]['successful']
+                             for v in ['direct', 'indirect'])
+            comparison[objective] = {
+                'overall_asr': successful / total if total > 0 else 0.0,
+                'total_tests': total,
+                'vectors': {
+                    v: matrix[v][objective]['asr']
+                    for v in ['direct', 'indirect']
+                }
+            }
+
+        return comparison
+
+    def calculate_defense_effectiveness(
+        self,
+        baseline_results: List[TestResult],
+        defense_name: str = "unknown"
+    ) -> Dict[str, Dict[str, Optional[float]]]:
+        """
+        Calculate Defense Effectiveness (DE) comparing current results to baseline.
+
+        DE = 1 - (ASR_defended / ASR_baseline)
+
+        Args:
+            baseline_results: Results from baseline (no defense) testing
+            defense_name: Name of the defense being evaluated
+
+        Returns:
+            Nested dict: {injection_vector: {attack_objective: DE_value}}
+        """
+        # Calculate baseline matrix
+        baseline_matrix = self._calculate_matrix_from_results(baseline_results)
+
+        # Calculate defended matrix (current results)
+        defended_matrix = self.get_taxonomy_matrix_data()
+
+        # Calculate DE for each cell
+        vectors = ['direct', 'indirect']
+        objectives = ['instruction_override',
+                      'data_extraction', 'role_confusion']
+
+        de_matrix = {}
+        for vector in vectors:
+            de_matrix[vector] = {}
+            for objective in objectives:
+                baseline_asr = baseline_matrix[vector][objective]['asr']
+                defended_asr = defended_matrix[vector][objective]['asr']
+
+                if baseline_asr == 0:
+                    # Can't calculate DE if baseline has 0% ASR
+                    de_matrix[vector][objective] = None
+                else:
+                    de_matrix[vector][objective] = 1 - \
+                        (defended_asr / baseline_asr)
+
+        return de_matrix
+
+    def _calculate_matrix_from_results(self, results: List[TestResult]) -> Dict:
+        """Helper to calculate matrix from a list of results."""
+        vectors = ['direct', 'indirect']
+        objectives = ['instruction_override',
+                      'data_extraction', 'role_confusion']
+
+        matrix = {}
+        for vector in vectors:
+            matrix[vector] = {}
+            for objective in objectives:
+                matrix[vector][objective] = {
+                    'total': 0,
+                    'successful': 0,
+                    'asr': 0.0
+                }
+
+        for result in results:
+            vector = result.injection_vector
+            objective = result.attack_objective
+
+            if vector in matrix and objective in matrix.get(vector, {}):
+                cell = matrix[vector][objective]
+                cell['total'] += 1
+                if result.detection_result == "success":
+                    cell['successful'] += 1
+
+        for vector in vectors:
+            for objective in objectives:
+                cell = matrix[vector][objective]
+                if cell['total'] > 0:
+                    cell['asr'] = cell['successful'] / cell['total']
+
+        return matrix
+
+    def get_taxonomy_summary(self) -> Dict[str, Any]:
+        """
+        Generate a comprehensive summary using the matrix framework.
+
+        Returns:
+            Dictionary containing matrix-based analysis
+        """
+        matrix = self.get_taxonomy_matrix_data()
+        vector_comparison = self.get_vector_comparison()
+        objective_comparison = self.get_objective_comparison()
+
+        # Find most/least vulnerable cells
+        all_cells = []
+        for vector, objectives in matrix.items():
+            for objective, metrics in objectives.items():
+                if metrics['total'] > 0:
+                    all_cells.append({
+                        'vector': vector,
+                        'objective': objective,
+                        'asr': metrics['asr'],
+                        'total': metrics['total']
+                    })
+
+        sorted_cells = sorted(all_cells, key=lambda x: x['asr'], reverse=True)
+
+        return {
+            'matrix': matrix,
+            'vector_comparison': vector_comparison,
+            'objective_comparison': objective_comparison,
+            'most_vulnerable_cell': sorted_cells[0] if sorted_cells else None,
+            'least_vulnerable_cell': sorted_cells[-1] if sorted_cells else None,
+            'total_tests': sum(c['total'] for c in all_cells),
+            'overall_asr': (
+                sum(c['asr'] * c['total'] for c in all_cells) /
+                sum(c['total'] for c in all_cells)
+            ) if all_cells else 0.0
+        }
+
     def get_summary(self) -> Dict[str, Any]:
         """
         Generate a summary of all collected metrics.
@@ -464,7 +744,7 @@ class MetricsCollector:
             "attack_id", "attack_name", "attack_category",
             "defense_strategy",
             "detection_result", "tokens_generated", "response_time",
-            "matched_patterns", "prompt", "response", "explanation"
+            "prompt", "response", "explanation"
         ]
 
         with open(filepath, 'w', newline='', encoding='utf-8') as f:
@@ -474,7 +754,6 @@ class MetricsCollector:
 
             for result in self.results:
                 row = asdict(result)
-                row['matched_patterns'] = ';'.join(row['matched_patterns'])
                 writer.writerow(row)
 
         logger.info(f"Exported {len(self.results)} results to {filepath}")
@@ -594,8 +873,6 @@ class MetricsCollector:
                 )],
                 tokens_generated=int(row['tokens_generated']),
                 response_time=float(row['response_time']),
-                matched_patterns=row['matched_patterns'] if pd.notna(
-                    row['matched_patterns']) else '',
                 prompt=row['prompt'],
                 response=row['response'],
                 explanation=row['explanation']

@@ -25,6 +25,10 @@ seaborn>=0.13.2
 
 # Configuration
 pyyaml>=6.0.3
+python-dotenv>=1.0.0
+
+# Gemini API for detection
+google-genai>=1.56.0
 
 # Document Processing
 python-docx>=1.2.0  # For loading .docx files in document injection attacks

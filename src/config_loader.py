@@ -40,19 +40,23 @@ class AttackVariation:
     A single attack prompt variation.
 
     Attributes:
-        id: Unique identifier (e.g., 'io_001')
+        id: Unique identifier (e.g., 'direct_io_001')
         name: Human-readable name
         prompt: The actual attack prompt text
         description: Detailed explanation of the attack
-        success_patterns: List of regex patterns to detect success
         document_file: Optional filename for document injection attacks
+        injection_vector: 'direct' or 'indirect'
+        attack_objective: Attack goal
+        success_definition: What constitutes a successful attack
     """
     id: str
     name: str
     prompt: str
     description: str
-    success_patterns: List[str]
     document_file: Optional[str] = None
+    injection_vector: str = "direct"  # 'direct' or 'indirect'
+    attack_objective: str = "instruction_override"  # attack objective
+    success_definition: str = ""  # explicit success criteria
 
 
 @dataclass
@@ -160,14 +164,26 @@ class ConfigLoader:
             self._attacks_config = self._load_yaml("attacks.yaml")
 
             # Count total attack variations
-            total_attacks = sum(
-                len(category.get('variations', []))
-                for key, category in self._attacks_config.items()
-                if key not in ['settings'] and isinstance(category, dict) and 'variations' in category
-            )
+            total_attacks = self._count_attacks(self._attacks_config)
             logger.info(f"Loaded {total_attacks} attack variations")
 
         return self._attacks_config
+
+    def _count_attacks(self, config: Dict) -> int:
+        """Count total attack variations in config."""
+        total = 0
+        # Count from taxonomy structure (direct_attacks, indirect_attacks)
+        for vector_key in ['direct_attacks', 'indirect_attacks']:
+            if vector_key in config:
+                for objective, attacks in config[vector_key].items():
+                    if isinstance(attacks, list):
+                        total += len(attacks)
+        # Count from legacy structure
+        for key, category in config.items():
+            if key not in ['settings', 'secrets', 'direct_attacks', 'indirect_attacks', 'legacy_mapping']:
+                if isinstance(category, dict) and 'variations' in category:
+                    total += len(category.get('variations', []))
+        return total
 
     def get_models(self) -> List[ModelConfig]:
         """
@@ -212,6 +228,7 @@ class ConfigLoader:
     def get_attack_categories(self) -> List[AttackCategory]:
         """
         Get all attack categories with their variations.
+        Supports both legacy and matrix-based configurations.
 
         Returns:
             List of AttackCategory objects
@@ -219,7 +236,11 @@ class ConfigLoader:
         config = self.load_attacks_config()
         categories = []
 
-        # Attack category keys (exclude 'settings')
+        # Check if using taxonomy structure
+        if 'direct_attacks' in config or 'indirect_attacks' in config:
+            return self._get_taxonomy_categories(config)
+
+        # Legacy attack category keys (exclude 'settings')
         category_keys = [
             'instruction_override',
             'data_extraction',
@@ -239,8 +260,12 @@ class ConfigLoader:
                         name=var_data.get('name', ''),
                         prompt=var_data.get('prompt', ''),
                         description=var_data.get('description', ''),
-                        success_patterns=var_data.get('success_patterns', []),
-                        document_file=var_data.get('document_file', None)
+                        document_file=var_data.get('document_file', None),
+                        injection_vector=var_data.get(
+                            'injection_vector', 'direct'),
+                        attack_objective=var_data.get('attack_objective', key),
+                        success_definition=var_data.get(
+                            'success_definition', '')
                     ))
 
                 categories.append(AttackCategory(
@@ -251,6 +276,133 @@ class ConfigLoader:
                 ))
 
         return categories
+
+    def _get_taxonomy_categories(self, config: Dict) -> List[AttackCategory]:
+        """
+        Parse taxonomy-based attack configuration.
+
+        Returns:
+            List of AttackCategory objects organized by taxonomy
+        """
+        categories = []
+
+        # Process direct attacks
+        if 'direct_attacks' in config:
+            for objective, attacks in config['direct_attacks'].items():
+                if isinstance(attacks, list):
+                    variations = []
+                    for var_data in attacks:
+                        variations.append(AttackVariation(
+                            id=var_data.get('id', ''),
+                            name=var_data.get('name', ''),
+                            prompt=var_data.get('prompt', ''),
+                            description=var_data.get('description', ''),
+                            document_file=var_data.get('document_file', None),
+                            injection_vector='direct',
+                            attack_objective=objective,
+                            success_definition=var_data.get(
+                                'success_definition', '')
+                        ))
+
+                    categories.append(AttackCategory(
+                        key=f"direct_{objective}",
+                        category=f"Direct {objective.replace('_', ' ').title()}",
+                        description=f"Direct injection attacks targeting {objective}",
+                        variations=variations
+                    ))
+
+        # Process indirect attacks
+        if 'indirect_attacks' in config:
+            for objective, attacks in config['indirect_attacks'].items():
+                if isinstance(attacks, list):
+                    variations = []
+                    for var_data in attacks:
+                        variations.append(AttackVariation(
+                            id=var_data.get('id', ''),
+                            name=var_data.get('name', ''),
+                            prompt=var_data.get('prompt', ''),
+                            description=var_data.get('description', ''),
+                            document_file=var_data.get('document_file', None),
+                            injection_vector='indirect',
+                            attack_objective=objective,
+                            success_definition=var_data.get(
+                                'success_definition', '')
+                        ))
+
+                    categories.append(AttackCategory(
+                        key=f"indirect_{objective}",
+                        category=f"Indirect {objective.replace('_', ' ').title()}",
+                        description=f"Indirect injection attacks via documents targeting {objective}",
+                        variations=variations
+                    ))
+
+        return categories
+
+    def get_attacks_by_taxonomy(self) -> Dict[str, Dict[str, List[AttackVariation]]]:
+        """
+        Get attacks organized by matrix (vector × objective).
+
+        Returns:
+            Nested dict: {injection_vector: {attack_objective: [attacks]}}
+        """
+        config = self.load_attacks_config()
+        taxonomy = {
+            'direct': {
+                'instruction_override': [],
+                'data_extraction': [],
+                'role_confusion': []
+            },
+            'indirect': {
+                'instruction_override': [],
+                'data_extraction': [],
+                'role_confusion': []
+            }
+        }
+
+        # Process taxonomy-structured config
+        if 'direct_attacks' in config:
+            for objective, attacks in config['direct_attacks'].items():
+                if isinstance(attacks, list) and objective in taxonomy['direct']:
+                    for var_data in attacks:
+                        taxonomy['direct'][objective].append(AttackVariation(
+                            id=var_data.get('id', ''),
+                            name=var_data.get('name', ''),
+                            prompt=var_data.get('prompt', ''),
+                            description=var_data.get('description', ''),
+                            document_file=var_data.get('document_file', None),
+                            injection_vector='direct',
+                            attack_objective=objective,
+                            success_definition=var_data.get(
+                                'success_definition', '')
+                        ))
+
+        if 'indirect_attacks' in config:
+            for objective, attacks in config['indirect_attacks'].items():
+                if isinstance(attacks, list) and objective in taxonomy['indirect']:
+                    for var_data in attacks:
+                        taxonomy['indirect'][objective].append(AttackVariation(
+                            id=var_data.get('id', ''),
+                            name=var_data.get('name', ''),
+                            prompt=var_data.get('prompt', ''),
+                            description=var_data.get('description', ''),
+                            document_file=var_data.get('document_file', None),
+                            injection_vector='indirect',
+                            attack_objective=objective,
+                            success_definition=var_data.get(
+                                'success_definition', '')
+                        ))
+
+        return taxonomy
+
+    def get_secrets(self) -> Dict[str, str]:
+        """
+        Get the secrets defined for data extraction attacks.
+
+        Returns:
+            Dictionary of secret_name: secret_value
+        """
+        config = self.load_attacks_config()
+        return config.get('secrets', {})
 
     def get_attack_by_id(self, attack_id: str) -> Optional[AttackVariation]:
         """

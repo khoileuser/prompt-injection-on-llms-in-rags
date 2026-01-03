@@ -95,8 +95,6 @@ def generate_summary(df: pd.DataFrame, filename: str) -> str:
     if df is None or df.empty:
         return "No data available. Select a results file."
 
-    test_type = "Attack Testing" if "attack_results" in filename else "Defense Testing"
-
     total_tests = len(df)
     unique_models = df['model_name'].nunique()
     unique_attacks = df['attack_category'].nunique()
@@ -108,14 +106,7 @@ def generate_summary(df: pd.DataFrame, filename: str) -> str:
         model_df = df[df['model_name'] == model]
         model_asr[model] = calculate_asr(model_df) * 100
 
-    sorted_models = sorted(model_asr.items(), key=lambda x: x[1])
-    most_robust = sorted_models[0][0] if sorted_models else "N/A"
-    most_vulnerable = sorted_models[-1][0] if sorted_models else "N/A"
-
     summary = f"""
-## Test Statistics
-**Data Source:** {filename} ({test_type})
-
 | Metric | Value |
 |--------|-------|
 | Total Tests | {total_tests} |
@@ -123,10 +114,6 @@ def generate_summary(df: pd.DataFrame, filename: str) -> str:
 | Attack Categories | {unique_attacks} |
 | Defense Strategies | {unique_defenses} |
 | Overall ASR | {overall_asr:.1f}% |
-
-## Key Findings
-- **Most Robust Model:** {most_robust} ({model_asr.get(most_robust, 0):.1f}% ASR)
-- **Most Vulnerable Model:** {most_vulnerable} ({model_asr.get(most_vulnerable, 0):.1f}% ASR)
 """
     return summary
 
@@ -359,26 +346,137 @@ def create_results_breakdown_pie(df: pd.DataFrame):
     }
     colors = [colors_map.get(r, '#95a5a6') for r in result_counts.index]
 
-    fig, ax = plt.subplots(figsize=(8, 8))
-    wedges, texts, autotexts = ax.pie(result_counts.values, labels=result_counts.index,
-                                      autopct='%1.1f%%', colors=colors,
-                                      wedgeprops=dict(width=0.6), pctdistance=0.75)
+    fig, ax = plt.subplots(figsize=(4, 6))
+    wedges, texts, autotexts = ax.pie(
+        result_counts.values,
+        labels=[r.capitalize() for r in result_counts.index],
+        autopct='%1.1f%%',
+        colors=colors,
+        startangle=90
+    )
 
     for autotext in autotexts:
+        autotext.set_color('white')
         autotext.set_fontsize(11)
         autotext.set_fontweight('bold')
 
-    ax.set_title('Overall Results Breakdown', fontsize=14, fontweight='bold')
-
-    centre_circle = plt.Circle((0, 0), 0.40, fc='white')
-    ax.add_patch(centre_circle)
-
-    total = sum(result_counts.values)
-    ax.text(0, 0, f'Total\n{total}', ha='center',
-            va='center', fontsize=14, fontweight='bold')
+    ax.set_title('Detection Results Breakdown',
+                 fontsize=14, fontweight='bold')
 
     plt.tight_layout()
     return fig_to_image(fig)
+
+
+def create_detailed_summary_table(df: pd.DataFrame) -> Optional[pd.DataFrame]:
+    """
+    Create a detailed summary table similar to defense testing results.
+    Shows Defense x Model x Vector x Objective breakdown.
+    """
+    if df is None or df.empty:
+        return None
+
+    # Check if this is defense results (has defense_strategy column)
+    if 'defense_strategy' not in df.columns:
+        return None
+
+    summary_data = []
+
+    # Group by defense strategy
+    for defense in df['defense_strategy'].unique():
+        defense_df = df[df['defense_strategy'] == defense]
+
+        # Group by model
+        for model in defense_df['model_name'].unique():
+            model_df = defense_df[defense_df['model_name'] == model]
+
+            # Group by attack category
+            for category in model_df['attack_category'].unique():
+                cat_df = model_df[model_df['attack_category'] == category]
+
+                if len(cat_df) > 0:
+                    cat_total = len(cat_df)
+                    cat_success = int(
+                        (cat_df['detection_result'] == 'success').sum())
+                    cat_blocked = int(
+                        (cat_df['detection_result'] == 'blocked').sum())
+                    cat_asr = (cat_success / cat_total *
+                               100) if cat_total > 0 else 0
+
+                    # Determine vector from category key
+                    vector = "Direct" if "direct" in category.lower() else "Indirect"
+
+                    summary_data.append({
+                        "Defense": defense,
+                        "Model": model,
+                        "Vector": vector,
+                        "Objective": category,
+                        "Tests": cat_total,
+                        "Success": cat_success,
+                        "Blocked": cat_blocked,
+                        "ASR (%)": round(cat_asr, 1)
+                    })
+
+    if not summary_data:
+        return None
+
+    result_df = pd.DataFrame(summary_data)
+
+    # Sort by Defense, Model, Vector, Objective
+    result_df = result_df.sort_values(
+        ["Defense", "Model", "Vector", "Objective"])
+
+    return result_df
+
+
+def create_attack_summary_table(df: pd.DataFrame) -> Optional[pd.DataFrame]:
+    """
+    Create a detailed summary table for attack testing results.
+    Shows Model x Vector x Objective breakdown.
+    """
+    if df is None or df.empty:
+        return None
+
+    summary_data = []
+
+    # Group by model
+    for model in df['model_name'].unique():
+        model_df = df[df['model_name'] == model]
+
+        # Group by attack category
+        for category in model_df['attack_category'].unique():
+            cat_df = model_df[model_df['attack_category'] == category]
+
+            if len(cat_df) > 0:
+                cat_total = len(cat_df)
+                cat_success = int(
+                    (cat_df['detection_result'] == 'success').sum())
+                cat_blocked = int(
+                    (cat_df['detection_result'] == 'blocked').sum())
+                cat_asr = (cat_success / cat_total *
+                           100) if cat_total > 0 else 0
+
+                # Determine vector from category key
+                vector = "Direct" if "direct" in category.lower() else "Indirect"
+
+                summary_data.append({
+                    "Model": model,
+                    "Vector": vector,
+                    "Objective": category,
+                    "Tests": cat_total,
+                    "Success": cat_success,
+                    "Blocked": cat_blocked,
+                    "ASR (%)": round(cat_asr, 1)
+                })
+
+    if not summary_data:
+        return None
+
+    result_df = pd.DataFrame(summary_data)
+
+    # Sort by Model, Vector, Objective
+    result_df = result_df.sort_values(["Model", "Vector", "Objective"])
+
+    return result_df
 
 
 def refresh_attack_visualizations(selected_file: str):
@@ -392,15 +490,16 @@ def refresh_attack_visualizations(selected_file: str):
                 ha='center', va='center', fontsize=14)
         ax.axis('off')
         empty_img = fig_to_image(fig)
-        return empty_msg, empty_img, empty_img, empty_img, empty_img
+        return empty_msg, empty_img, empty_img, empty_img, empty_img, None
 
     summary = generate_summary(df, selected_file)
     model_chart = create_model_asr_chart(df)
     attack_chart = create_attack_category_chart(df)
     heatmap = create_heatmap(df)
     pie_chart = create_results_breakdown_pie(df)
+    summary_table = create_attack_summary_table(df)
 
-    return summary, model_chart, attack_chart, heatmap, pie_chart
+    return summary, model_chart, attack_chart, heatmap, pie_chart, summary_table
 
 
 def refresh_defense_visualizations(selected_file: str):
@@ -414,7 +513,7 @@ def refresh_defense_visualizations(selected_file: str):
                 ha='center', va='center', fontsize=14)
         ax.axis('off')
         empty_img = fig_to_image(fig)
-        return empty_msg, empty_img, empty_img, empty_img, empty_img, empty_img
+        return empty_msg, empty_img, empty_img, empty_img, empty_img, empty_img, None
 
     summary = generate_summary(df, selected_file)
     model_chart = create_model_asr_chart(df)
@@ -422,8 +521,9 @@ def refresh_defense_visualizations(selected_file: str):
     defense_comparison = create_defense_asr_comparison(df)
     heatmap = create_heatmap(df)
     pie_chart = create_results_breakdown_pie(df)
+    summary_table = create_detailed_summary_table(df)
 
-    return summary, model_chart, defense_effectiveness, defense_comparison, heatmap, pie_chart
+    return summary, model_chart, defense_effectiveness, defense_comparison, heatmap, pie_chart, summary_table
 
 
 def create_visualization_tab():
@@ -437,16 +537,26 @@ def create_visualization_tab():
             attack_file_dropdown = gr.Dropdown(
                 choices=get_attack_file_choices(),
                 value=get_attack_file_choices()[0] if get_attack_file_choices(
-                ) and get_attack_file_choices()[0] != "No attack results files found" else None,
-                label="Select Attack Results File",
-                interactive=True
+                ) and get_attack_file_choices()[0] != "No results files found" else None,
+                label="Select Results File",
+                interactive=True,
+                scale=2
             )
-            attack_refresh_btn = gr.Button(
-                "Refresh", variant="primary", scale=0)
+            attack_reload_btn = gr.Button("Reload")
+            attack_refresh_btn = gr.Button("Load", variant="primary")
 
         with gr.Row():
-            attack_summary_md = gr.Markdown(
-                "Select an attack results file to view charts.")
+            with gr.Column(scale=1):
+                attack_summary_md = gr.Markdown(
+                    "Select a results file to view charts.")
+            with gr.Column(scale=1):
+                attack_summary_table = gr.Dataframe(
+                    headers=["Model", "Vector", "Objective",
+                             "Tests", "Success", "Blocked", "ASR (%)"],
+                    label="",
+                    interactive=False,
+                    wrap=True
+                )
 
         with gr.Row():
             attack_model_chart = gr.Image(label="ASR by Model")
@@ -464,16 +574,26 @@ def create_visualization_tab():
             defense_file_dropdown = gr.Dropdown(
                 choices=get_defense_file_choices(),
                 value=get_defense_file_choices()[0] if get_defense_file_choices(
-                ) and get_defense_file_choices()[0] != "No defense results files found" else None,
-                label="Select Defense Results File",
-                interactive=True
+                ) and get_defense_file_choices()[0] != "No results files found" else None,
+                label="Select Results File",
+                interactive=True,
+                scale=2
             )
-            defense_refresh_btn = gr.Button(
-                "Refresh", variant="primary", scale=0)
+            defense_reload_btn = gr.Button("Reload")
+            defense_refresh_btn = gr.Button("Load", variant="primary")
 
         with gr.Row():
-            defense_summary_md = gr.Markdown(
-                "Select a defense results file to view charts.")
+            with gr.Column(scale=1):
+                defense_summary_md = gr.Markdown(
+                    "Select a results file to view charts.")
+            with gr.Column(scale=1):
+                defense_summary_table = gr.Dataframe(
+                    headers=["Defense", "Model", "Vector", "Objective",
+                             "Tests", "Success", "Blocked", "ASR (%)"],
+                    label="",
+                    interactive=False,
+                    wrap=True
+                )
 
         with gr.Row():
             defense_model_chart = gr.Image(label="ASR by Model (with Defense)")
@@ -493,14 +613,21 @@ def create_visualization_tab():
             fn=refresh_attack_visualizations,
             inputs=[attack_file_dropdown],
             outputs=[attack_summary_md, attack_model_chart,
-                     attack_category_chart, attack_heatmap, attack_pie_chart]
+                     attack_category_chart, attack_heatmap, attack_pie_chart, attack_summary_table]
+        )
+
+        attack_reload_btn.click(
+            fn=lambda: gr.Dropdown(choices=get_attack_file_choices(),
+                                   value=get_attack_file_choices()[0] if get_attack_file_choices() and get_attack_file_choices()[0] != "No attack results files found" else None),
+            inputs=None,
+            outputs=[attack_file_dropdown]
         )
 
         attack_refresh_btn.click(
             fn=refresh_attack_visualizations,
             inputs=[attack_file_dropdown],
             outputs=[attack_summary_md, attack_model_chart,
-                     attack_category_chart, attack_heatmap, attack_pie_chart]
+                     attack_category_chart, attack_heatmap, attack_pie_chart, attack_summary_table]
         )
 
         # Event handlers for defense section
@@ -508,12 +635,19 @@ def create_visualization_tab():
             fn=refresh_defense_visualizations,
             inputs=[defense_file_dropdown],
             outputs=[defense_summary_md, defense_model_chart, defense_effectiveness_chart,
-                     defense_comparison_chart, defense_heatmap, defense_pie_chart]
+                     defense_comparison_chart, defense_heatmap, defense_pie_chart, defense_summary_table]
+        )
+
+        defense_reload_btn.click(
+            fn=lambda: gr.Dropdown(choices=get_defense_file_choices(),
+                                   value=get_defense_file_choices()[0] if get_defense_file_choices() and get_defense_file_choices()[0] != "No defense results files found" else None),
+            inputs=None,
+            outputs=[defense_file_dropdown]
         )
 
         defense_refresh_btn.click(
             fn=refresh_defense_visualizations,
             inputs=[defense_file_dropdown],
             outputs=[defense_summary_md, defense_model_chart, defense_effectiveness_chart,
-                     defense_comparison_chart, defense_heatmap, defense_pie_chart]
+                     defense_comparison_chart, defense_heatmap, defense_pie_chart, defense_summary_table]
         )

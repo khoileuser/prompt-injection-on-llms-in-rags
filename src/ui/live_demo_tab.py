@@ -84,11 +84,6 @@ def get_attack_info(attack_id: str) -> str:
 
 **Description:**
 {attack.description}
-
-**Detection Patterns:**
-```
-{chr(10).join(attack.success_patterns)}
-```
 """
     return ""
 
@@ -158,8 +153,7 @@ def run_single_attack(
             id="custom",
             name="Custom Prompt",
             prompt=prompt,
-            description="User-provided custom prompt",
-            success_patterns=[]
+            description="User-provided custom prompt"
         )
 
     # Get current defense strategy for logging
@@ -218,10 +212,7 @@ def run_single_attack(
 
 **Defense Used:** {defense_config.name}
 
-**Explanation:** {detection_result.explanation}
-
-**Matched Patterns:**
-{chr(10).join(f'- `{p}`' for p in detection_result.matched_patterns) if detection_result.matched_patterns else 'None'}
+**Explanation:** {detection_result.reasoning}
 """
 
         return status, prompt, inference_result.response, detection_display

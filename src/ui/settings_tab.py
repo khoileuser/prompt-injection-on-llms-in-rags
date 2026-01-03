@@ -1,11 +1,10 @@
+import os
+
 import gradio as gr
 
 from src.config_loader import get_models, get_attacks, get_attack_categories
 from src.metrics import get_metrics_collector
-from src.detection import (
-    set_detection_method,
-    DETECTION_METHODS,
-)
+from src.detection import get_detector
 
 
 def create_settings_tab():
@@ -51,28 +50,13 @@ def create_settings_tab():
         # Detection Method Settings
         with gr.Row():
             with gr.Column():
-                gr.Markdown("""
-#### Detection Method Settings
+                # Check if Gemini is configured
+                detector = get_detector()
+                gemini_status = "Configured" if detector.is_configured(
+                ) else "Not configured (set GEMINI_API_KEY)"
 
-Choose the detection method for identifying successful prompt injection attacks:
+                gr.Markdown(f"""
+**Detection:** Gemini API ({os.getenv('GEMINI_MODEL', 'gemini-3-flash-preview')})
 
-- **llama_guard**: Uses Meta's LLaMA Guard 3 model for accurate safety classification.
-- **regex**: Fast, traditional pattern-based detection. May have more false positives.
+**API Key Status:** {gemini_status}
 """)
-
-                detection_method_dropdown = gr.Dropdown(
-                    choices=list(DETECTION_METHODS.keys()),
-                    value="llama_guard",
-                    label="Detection Method",
-                    info="Select the detection method to use for attack classification"
-                )
-
-                def update_detection_method(method):
-                    """Update the detection method."""
-                    set_detection_method(method)
-
-                detection_method_dropdown.change(
-                    fn=update_detection_method,
-                    inputs=[detection_method_dropdown],
-                )
-

@@ -80,23 +80,22 @@ Access the interface at `http://localhost:7860`
 ```
 prompt-injection-security/
 ├── config/
-│   ├── attacks-full.yaml    # Complete attack definitions
-│   ├── attacks.yaml         # Active attack configurations
-│   └── models.yaml          # Model configurations
-├── documents/               # Document injection attack files
-│   ├── di_base64_encoded.txt
-│   ├── di_metadata_json.docx
+│   ├── attacks.yaml          # Attack definitions
+│   └── models.yaml           # Model configurations
+├── documents/                # Document injection attack files
+│   ├── di_secret_leak.txt    # Indirect data extraction
+│   ├── di_persona_injection.txt # Indirect role confusion
 │   ├── ...
 ├── src/
-│   ├── app.py               # Gradio web application
-│   ├── config_loader.py     # Configuration management
-│   ├── defense_prompts.py   # Defense strategy implementations
-│   ├── detection.py         # Attack success detection
-│   ├── document_loader.py   # Document injection loader
-│   ├── inference.py         # Model inference engine
-│   ├── metrics.py           # Metrics collection and export
-│   ├── visualization.py     # Chart generation
-│   └── ui/                  # Gradio UI components
+│   ├── app.py                # Gradio web application
+│   ├── config_loader.py      # Configuration management
+│   ├── defense_prompts.py    # Defense strategies
+│   ├── detection.py          # Attack success detection
+│   ├── document_loader.py    # Document injection loader
+│   ├── inference.py          # Model inference engine
+│   ├── metrics.py            # Metrics & calculation
+│   ├── visualization.py      # Visualizations
+│   └── ui/                   # Gradio UI components
 │       ├── attack_testing_tab.py    # Single defense strategy testing
 │       ├── defense_testing_tab.py   # Comprehensive defense testing
 │       ├── live_demo_tab.py         # Interactive testing interface
@@ -161,19 +160,16 @@ Attempts to generate malicious code including malware and exfiltration scripts.
 | ci_002 | Data Exfiltration    | File upload scripts      |
 | ...    | ...                  | ...                      |
 
+### Defenses Tested
+
+-   **Strong System-Prompt Prefixing** - Repeatedly reinforces safety instructions
+-   **Source Tagging/Quoting** - Tags retrieved documents as untrusted data
+-   **Output Filtering** - Post-generation filter for secrets and violations
+
 ## Metrics
 
-### Attack Success Rate (ASR)
-
-```
-ASR = Successful Attacks / Total Attacks
-```
-
-### Defense Efectiveness (DE)
-
-```
-DE = 1 - ASR Defended / ASR Baseline
-```
+-   **Attack Success Rate (ASR)**: `N_success / N_total`
+-   **Defense Effectiveness (DE)**: `1 - (ASR_defended / ASR_baseline)`
 
 ## Configuration
 
@@ -198,17 +194,29 @@ models:
 
 ### Adding New Attacks
 
-Edit `config/attacks.yaml`:
+Edit `config/attacks.yaml` to add attacks:
 
 ```yaml
-new_category:
-    category: "New Category"
-    description: "Description of attack category"
-    variations:
-        - id: "nc_001"
-          name: "Attack Name"
+# Direct attacks (prompt injection)
+direct_attacks:
+    instruction_override:
+        - id: "direct_io_new"
+          name: "New Direct Attack"
           prompt: "Your attack prompt here"
+          injection_vector: "direct"
+          attack_objective: "instruction_override"
           description: "What this attack does"
-          success_patterns:
-              - "(?i)(pattern|to|match)"
+          success_definition: "What constitutes success"
+
+# Indirect attacks (document injection)
+indirect_attacks:
+    data_extraction:
+        - id: "indirect_de_new"
+          name: "New Indirect Attack"
+          prompt: "Analyze this document."
+          document_file: "malicious_doc.txt"
+          injection_vector: "indirect"
+          attack_objective: "data_extraction"
+          description: "Hidden instruction in document"
+          success_definition: "Model reveals sensitive data"
 ```

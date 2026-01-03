@@ -1,6 +1,4 @@
-# =============================================================================
 # Model Configuration for Prompt Injection Security Research
-# =============================================================================
 # This file defines the HuggingFace models used for testing prompt injection
 # attacks. Each model is configured with 4-bit quantization for efficient
 # local inference on hardware with <32GB RAM.
@@ -9,7 +7,6 @@
 # 1. Add a new entry under 'models' with a unique key
 # 2. Specify the HuggingFace model ID
 # 3. Configure quantization and generation parameters
-# =============================================================================
 
 # Global inference settings
 inference:
@@ -52,9 +49,8 @@ models:
             You are Llama, a helpful assistant.
         generation_config:
             max_new_tokens: 512
-            temperature: 0.7
-            top_p: 0.9
-            do_sample: true
+            temperature: 0.0
+            do_sample: false
             repetition_penalty: 1.1
 
     qwen:
@@ -67,10 +63,9 @@ models:
             You are Qwen, a helpful assistant.
         generation_config:
             max_new_tokens: 512
-            temperature: 0.7
-            top_p: 0.8
-            do_sample: true
-            repetition_penalty: 1.05
+            temperature: 0.0
+            do_sample: false
+            repetition_penalty: 1.1
 
     gemma:
         name: "Gemma 2 (Google DeepMind)"
@@ -82,13 +77,9 @@ models:
             You are Gemma, a helpful AI assistant.
         generation_config:
             max_new_tokens: 512
-            temperature: 0.7
-            top_p: 0.9
-            do_sample: true
+            temperature: 0.0
+            do_sample: false
             repetition_penalty: 1.1
-            # Stability fixes for probability tensor errors
-            min_p: 0.05
-            top_k: 50
 
     phi:
         name: "Phi-3.5 Mini (Microsoft)"
@@ -100,9 +91,8 @@ models:
             You are Phi, a helpful AI assistant.
         generation_config:
             max_new_tokens: 512
-            temperature: 0.7
-            top_p: 0.9
-            do_sample: true
+            temperature: 0.0
+            do_sample: false
             repetition_penalty: 1.1
 
 # Prompt templates for different model architectures

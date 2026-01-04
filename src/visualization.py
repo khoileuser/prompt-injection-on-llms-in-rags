@@ -603,9 +603,7 @@ Least Effective Attack: {summary.get('least_effective_attack', 'N/A')}
 
         return self._fig_to_base64(fig) if as_base64 else fig
 
-    # =========================================================================
     # VISUALIZATIONS (2×4 Matrix Framework)
-    # =========================================================================
     # These visualizations support the lightweight framework that decomposes
     # attacks by injection vector (direct/indirect) and attack objective.
 

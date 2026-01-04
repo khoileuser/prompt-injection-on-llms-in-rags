@@ -53,7 +53,7 @@ class GeminiDetector:
         """Initialize the Gemini detector."""
         self.api_key = os.getenv(
             'GEMINI_API_KEY') or os.getenv('GOOGLE_API_KEY')
-        self.model_name = os.getenv('GEMINI_MODEL', 'gemini-3-flash-preview')
+        self.model_name = os.getenv('GEMINI_MODEL', 'gemini-flash-latest')
         self._configured = False
         self._model = None
 
@@ -125,12 +125,13 @@ class GeminiDetector:
         """Get the result for a specific detection ID."""
         return self._results.get(detection_id)
 
-    def process_batch(self, batch_size: int = 10):
+    def process_batch(self, batch_size: int = 10, max_retries: int = 3):
         """
         Process all pending detections in batches.
 
         Args:
             batch_size: Number of detections per API call
+            max_retries: Maximum number of retries for rate-limited batches
         """
         if not self._pending:
             logger.info("No pending detections to process")
@@ -156,20 +157,56 @@ class GeminiDetector:
         # Process in batches
         for i in range(0, total, batch_size):
             batch = self._pending[i:i+batch_size]
-            self._process_single_batch(batch)
+
+            # Retry logic for rate-limited batches
+            retry_count = 0
+            while retry_count <= max_retries:
+                retry_delay = self._process_single_batch(batch)
+
+                if retry_delay is None:
+                    # Success, move to next batch
+                    break
+
+                if retry_count < max_retries:
+                    # Wait and retry this batch
+                    wait_time = retry_delay + 1.0
+                    logger.info(
+                        f"Retry {retry_count + 1}/{max_retries}: Waiting {wait_time}s before retrying batch")
+                    time.sleep(wait_time)
+                    retry_count += 1
+                else:
+                    # Max retries reached, give up on this batch
+                    logger.error(
+                        f"Max retries ({max_retries}) reached for batch. Moving to next batch.")
+                    break
 
             # Rate limiting between batches
             if i + batch_size < total:
-                time.sleep(2)
+                if retry_delay:
+                    # If last batch was rate-limited, use longer delay
+                    wait_time = max(retry_delay + 1.0, 5.0)
+                    logger.info(
+                        f"Waiting {wait_time}s before next batch (API retry delay)")
+                    time.sleep(wait_time)
+                else:
+                    # Default wait to respect rate limits (15 RPM = 4s between requests)
+                    wait_time = 4.0
+                    logger.info(f"Waiting {wait_time}s before next batch")
+                    time.sleep(wait_time)
 
         self._pending.clear()
         logger.info(
             f"Batch processing complete. Processed {total} detections.")
 
-    def _process_single_batch(self, batch: List[Dict[str, Any]]):
-        """Process a single batch of detections."""
+    def _process_single_batch(self, batch: List[Dict[str, Any]]) -> Optional[float]:
+        """
+        Process a single batch of detections.
+
+        Returns:
+            Optional retry delay in seconds if rate limited, None otherwise
+        """
         if not batch:
-            return
+            return None
 
         # Build the prompt for batch classification
         prompt = self._build_batch_prompt(batch)
@@ -183,9 +220,18 @@ class GeminiDetector:
 
             # Parse the batch response
             self._parse_batch_response(batch, response_text)
+            return None  # Success, no retry needed
 
         except Exception as e:
-            logger.error(f"Batch detection error: {e}")
+            # Check if it's a rate limit error and extract retry delay
+            retry_delay = self._extract_retry_delay(e)
+
+            if retry_delay:
+                logger.warning(
+                    f"Rate limit exceeded. Retry delay: {retry_delay}s")
+            else:
+                logger.error(f"Batch detection error: {e}")
+
             # Mark all in batch as error
             for item in batch:
                 self._results[item['id']] = AttackDetectionResult(
@@ -195,6 +241,41 @@ class GeminiDetector:
                     result=DetectionResult.ERROR,
                     reasoning=f"API error: {str(e)}"
                 )
+
+            return retry_delay
+
+    def _extract_retry_delay(self, exception: Exception) -> Optional[float]:
+        """
+        Extract retry delay from API error response.
+
+        Args:
+            exception: The exception raised by the API
+
+        Returns:
+            Retry delay in seconds, or None if not found
+        """
+        import re
+
+        error_str = str(exception)
+
+        # Try to parse RetryInfo delay (format: "34.949085097s" or "34s")
+        retry_match = re.search(r"Please retry in (\d+(?:\.\d+)?)s", error_str)
+        if retry_match:
+            return float(retry_match.group(1))
+
+        # Try to parse from retryDelay field in JSON
+        retry_match = re.search(r"'retryDelay':\s*'(\d+)s'", error_str)
+        if retry_match:
+            return float(retry_match.group(1))
+
+        # Check if it's a 429 (rate limit) error without specific delay
+        if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
+            # Return a conservative default for rate limits
+            logger.info(
+                "Rate limit error detected but no retry delay found, using default 60s")
+            return 60.0
+
+        return None
 
     def _build_batch_prompt(self, batch: List[Dict[str, Any]]) -> str:
         """Build the prompt for batch classification."""
@@ -231,8 +312,8 @@ class GeminiDetector:
             response = item['response']
 
             # Truncate long responses
-            if len(response) > 1500:
-                response = response[:1500] + "... [truncated]"
+            if len(response) > 1000:
+                response = response[:1000] + "... [truncated]"
 
             prompt_parts.append(f"--- RESPONSE {idx} ---")
             prompt_parts.append(f"Attack Type: {item['category']}")

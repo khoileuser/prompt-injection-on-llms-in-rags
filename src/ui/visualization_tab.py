@@ -150,7 +150,7 @@ def create_model_asr_chart(df: pd.DataFrame):
 
 
 def create_attack_category_chart(df: pd.DataFrame):
-    """Create bar chart for ASR by attack category."""
+    """Create bar chart for ASR by attack objective."""
     if df is None or df.empty:
         return None
 
@@ -170,7 +170,7 @@ def create_attack_category_chart(df: pd.DataFrame):
     ax.set_xticks(range(len(attack_df)))
     ax.set_xticklabels(attack_df['Attack'], rotation=45, ha='right')
     ax.set_ylabel('Attack Success Rate (%)', fontsize=12)
-    ax.set_title('ASR by Attack Category', fontsize=14, fontweight='bold')
+    ax.set_title('ASR by Attack Objective', fontsize=14, fontweight='bold')
     ax.set_ylim(0, 100)
 
     for bar, asr in zip(bars, attack_df['ASR']):
@@ -214,7 +214,7 @@ def create_heatmap(df: pd.DataFrame):
             text = ax.text(j, i, f'{matrix[i][j]:.1f}%', ha='center', va='center',
                            color='white' if matrix[i][j] > 50 else 'black', fontsize=10)
 
-    ax.set_title('Model x Attack Category Heatmap (ASR %)',
+    ax.set_title('ASR Heatmap on Attack Objectives',
                  fontsize=14, fontweight='bold')
     plt.colorbar(im, ax=ax, label='ASR (%)')
     plt.tight_layout()
@@ -227,6 +227,29 @@ def create_defense_effectiveness_chart(df: pd.DataFrame):
         return None
 
     strategies = df['defense_strategy'].unique().tolist()
+
+    # If 'none' is not in the current dataframe, try to load it from attack results
+    if 'none' not in strategies:
+        logger.info(
+            "No baseline 'none' strategy found in current data. Attempting to load from attack results...")
+
+        # Try to find the most recent attack results file
+        attack_files = get_attack_file_choices()
+        if attack_files and attack_files[0] != "No attack results files found":
+            baseline_df = load_results_data(attack_files[0])
+
+            if baseline_df is not None and 'none' in baseline_df['defense_strategy'].unique():
+                logger.info(
+                    f"Found baseline data in {attack_files[0]}. Merging with defense results...")
+                # Merge the baseline data with the defense data
+                df = pd.concat([baseline_df, df], ignore_index=True)
+                strategies = df['defense_strategy'].unique().tolist()
+                logger.info(f"Merged data. Strategies now: {strategies}")
+            else:
+                logger.warning(
+                    "Could not find baseline data with 'none' strategy in attack results")
+
+    # Check if we have enough data for comparison
     if len(strategies) <= 1 or 'none' not in strategies:
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.text(0.5, 0.5, 'Defense Effectiveness requires multiple defense strategies.\nRun Defense Testing first.',
@@ -274,7 +297,7 @@ def create_defense_effectiveness_chart(df: pd.DataFrame):
     ax.axhline(y=0, color='gray', linestyle='--', linewidth=1)
     ax.set_xlabel('Defense Strategy', fontsize=12)
     ax.set_ylabel('Defense Effectiveness (%)', fontsize=12)
-    ax.set_title('Defense Effectiveness by Strategy\nDE = 1 - (ASR_defended / ASR_baseline) | Higher is better',
+    ax.set_title('Defense Effectiveness by Mechanism',
                  fontsize=14, fontweight='bold')
     ax.set_xticks(x)
     ax.set_xticklabels([s.capitalize() for s in defense_strategies])
@@ -292,6 +315,23 @@ def create_defense_asr_comparison(df: pd.DataFrame):
         return None
 
     strategies = df['defense_strategy'].unique().tolist()
+
+    # If we don't have baseline data, try to load it from attack results
+    if 'none' not in strategies:
+        logger.info(
+            "No baseline 'none' strategy found for comparison. Attempting to load from attack results...")
+
+        attack_files = get_attack_file_choices()
+        if attack_files and attack_files[0] != "No attack results files found":
+            baseline_df = load_results_data(attack_files[0])
+
+            if baseline_df is not None and 'none' in baseline_df['defense_strategy'].unique():
+                logger.info(
+                    f"Found baseline data in {attack_files[0]}. Merging with defense results...")
+                df = pd.concat([baseline_df, df], ignore_index=True)
+                strategies = df['defense_strategy'].unique().tolist()
+                logger.info(f"Merged data. Strategies now: {strategies}")
+
     if len(strategies) <= 1:
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.text(0.5, 0.5, 'Comparison requires multiple defense strategies.',
@@ -360,8 +400,128 @@ def create_results_breakdown_pie(df: pd.DataFrame):
         autotext.set_fontsize(11)
         autotext.set_fontweight('bold')
 
-    ax.set_title('Detection Results Breakdown',
+    ax.set_title('Results Summary',
                  fontsize=14, fontweight='bold')
+
+    plt.tight_layout()
+    return fig_to_image(fig)
+
+
+def create_defense_vs_attack_heatmap(df: pd.DataFrame):
+    """Create heatmap showing Defense Strategy effectiveness against Attack Objectives."""
+    if df is None or df.empty:
+        return None
+
+    strategies = df['defense_strategy'].unique().tolist()
+
+    # If 'none' is not in the current dataframe, try to load it from attack results
+    if 'none' not in strategies:
+        logger.info(
+            "No baseline 'none' strategy found. Attempting to load from attack results...")
+
+        attack_files = get_attack_file_choices()
+        if attack_files and attack_files[0] != "No attack results files found":
+            baseline_df = load_results_data(attack_files[0])
+
+            if baseline_df is not None and 'none' in baseline_df['defense_strategy'].unique():
+                logger.info(
+                    f"Found baseline data in {attack_files[0]}. Merging with defense results...")
+                df = pd.concat([baseline_df, df], ignore_index=True)
+                strategies = df['defense_strategy'].unique().tolist()
+                logger.info(f"Merged data. Strategies now: {strategies}")
+
+    # Check if we have enough data
+    if len(strategies) <= 1 or 'none' not in strategies:
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.text(0.5, 0.5, 'Defense vs Attack analysis requires baseline and defense data.\nRun Attack and Defense Testing first.',
+                ha='center', va='center', fontsize=12, transform=ax.transAxes)
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.axis('off')
+        ax.set_title('Defense Mechanisms against Attack Objectives',
+                     fontsize=14, fontweight='bold')
+        return fig_to_image(fig)
+
+    defense_strategies = [s for s in strategies if s != 'none']
+    attack_categories = df['attack_category'].unique().tolist()
+
+    # Build matrix showing ASR% for all rows (baseline + defense strategies)
+    # Lower ASR% = Better (fewer successful attacks)
+    matrix = []
+
+    # Add baseline row (showing ASR with no defense)
+    baseline_row = []
+    for category in attack_categories:
+        baseline_subset = df[(df['defense_strategy'] == 'none') &
+                             (df['attack_category'] == category)]
+        baseline_asr = calculate_asr(
+            baseline_subset) * 100  # Convert to percentage
+        baseline_row.append(baseline_asr)
+    matrix.append(baseline_row)
+
+    # Add defense strategy ASR rows
+    for strategy in defense_strategies:
+        row = []
+        for category in attack_categories:
+            # Get defended ASR for this strategy and category
+            defended_subset = df[(df['defense_strategy'] == strategy) &
+                                 (df['attack_category'] == category)]
+            defended_asr = calculate_asr(
+                defended_subset) * 100  # Convert to percentage
+
+            row.append(defended_asr)
+        matrix.append(row)
+
+    # Shorten strategy names for display - include "None (Baseline)" at top
+    # Shorten strategy names for display - include "None (Baseline)" at top
+    short_strategies = [
+        'None (Baseline)'] + [s.replace('_', ' ').title() for s in defense_strategies]
+    short_strategies = [
+        'None (Baseline)'] + [s.replace('_', ' ').title() for s in defense_strategies]
+
+    # Shorten attack category names
+    short_categories = []
+    for cat in attack_categories:
+        # Remove "Direct" or "Indirect" prefix and shorten
+        cat_parts = cat.split()
+        if len(cat_parts) > 2:
+            short_cat = ' '.join(cat_parts[:2])
+        else:
+            short_cat = cat
+        short_categories.append(short_cat)
+
+    fig, ax = plt.subplots(figsize=(14, 7))
+
+    # Use different colormaps for baseline row (ASR) vs effectiveness rows
+    # For baseline row: higher ASR = worse (red), lower ASR = better (green)
+    # For effectiveness rows: higher % = better (green), lower % = worse (red)
+    im = ax.imshow(matrix, cmap='RdYlGn_r', aspect='auto', vmin=0, vmax=100)
+
+    ax.set_xticks(range(len(short_categories)))
+    ax.set_xticklabels(short_categories, rotation=45, ha='right', fontsize=10)
+    ax.set_yticks(range(len(short_strategies)))
+    ax.set_yticklabels(short_strategies, fontsize=10)
+
+    # Add text annotations - all cells show ASR%
+    for i in range(len(short_strategies)):
+        for j in range(len(attack_categories)):
+            asr_value = matrix[i][j]
+
+            # All rows show ASR% - lower is better
+            text_label = f'{asr_value:.1f}%'
+            # Use white text on dark/red colors (high ASR), black on light/green colors (low ASR)
+            text_color = 'white' if asr_value > 50 else 'black'
+
+            text = ax.text(j, i, text_label, ha='center', va='center',
+                           color=text_color, fontsize=9, fontweight='bold')
+
+    # Update title to reflect that all cells show ASR%
+    ax.set_title('ASR on Defense Mechanisms against Attack Objectives',
+                 fontsize=14, fontweight='bold')
+
+    cbar = plt.colorbar(im, ax=ax, label='ASR (%)')
+    cbar.ax.text(1.5, 10, 'Better', rotation=90, va='center', fontsize=9)
+    cbar.ax.text(1.5, 90, 'Worse', rotation=90, va='center', fontsize=9)
 
     plt.tight_layout()
     return fig_to_image(fig)
@@ -513,17 +673,18 @@ def refresh_defense_visualizations(selected_file: str):
                 ha='center', va='center', fontsize=14)
         ax.axis('off')
         empty_img = fig_to_image(fig)
-        return empty_msg, empty_img, empty_img, empty_img, empty_img, empty_img, None
+        return empty_msg, empty_img, empty_img, empty_img, empty_img, empty_img, empty_img, None
 
     summary = generate_summary(df, selected_file)
     model_chart = create_model_asr_chart(df)
     defense_effectiveness = create_defense_effectiveness_chart(df)
     defense_comparison = create_defense_asr_comparison(df)
+    defense_vs_attack = create_defense_vs_attack_heatmap(df)
     heatmap = create_heatmap(df)
     pie_chart = create_results_breakdown_pie(df)
     summary_table = create_detailed_summary_table(df)
 
-    return summary, model_chart, defense_effectiveness, defense_comparison, heatmap, pie_chart, summary_table
+    return summary, model_chart, defense_effectiveness, defense_comparison, defense_vs_attack, heatmap, pie_chart, summary_table
 
 
 def create_visualization_tab():
@@ -560,11 +721,11 @@ def create_visualization_tab():
 
         with gr.Row():
             attack_model_chart = gr.Image(label="ASR by Model")
-            attack_category_chart = gr.Image(label="ASR by Attack Category")
+            attack_category_chart = gr.Image(label="ASR by Attack Objective")
 
         with gr.Row():
-            attack_heatmap = gr.Image(label="Model x Attack Heatmap")
-            attack_pie_chart = gr.Image(label="Results Breakdown")
+            attack_heatmap = gr.Image(label="ASR Heatmap")
+            attack_pie_chart = gr.Image(label="Results Summary")
 
         # Defense Results Section
         gr.Markdown("---")
@@ -598,15 +759,17 @@ def create_visualization_tab():
         with gr.Row():
             defense_model_chart = gr.Image(label="ASR by Model (with Defense)")
             defense_effectiveness_chart = gr.Image(
-                label="Defense Effectiveness (DE = 1 - ASR_defended/ASR_baseline)")
+                label="Defense Effectiveness")
 
         with gr.Row():
             defense_comparison_chart = gr.Image(
-                label="ASR Comparison Across Strategies")
-            defense_heatmap = gr.Image(label="Model x Attack Heatmap")
+                label="ASR Comparison Across Defenses")
+            defense_vs_attack_heatmap = gr.Image(
+                label="Defense Mechanisms against Attack Objectives")
 
         with gr.Row():
-            defense_pie_chart = gr.Image(label="Results Breakdown")
+            defense_heatmap = gr.Image(label="ASR Heatmap (with Defense)")
+            defense_pie_chart = gr.Image(label="Results Summary")
 
         # Event handlers for attack section
         attack_file_dropdown.change(
@@ -635,7 +798,7 @@ def create_visualization_tab():
             fn=refresh_defense_visualizations,
             inputs=[defense_file_dropdown],
             outputs=[defense_summary_md, defense_model_chart, defense_effectiveness_chart,
-                     defense_comparison_chart, defense_heatmap, defense_pie_chart, defense_summary_table]
+                     defense_comparison_chart, defense_vs_attack_heatmap, defense_heatmap, defense_pie_chart, defense_summary_table]
         )
 
         defense_reload_btn.click(
@@ -649,5 +812,5 @@ def create_visualization_tab():
             fn=refresh_defense_visualizations,
             inputs=[defense_file_dropdown],
             outputs=[defense_summary_md, defense_model_chart, defense_effectiveness_chart,
-                     defense_comparison_chart, defense_heatmap, defense_pie_chart, defense_summary_table]
+                     defense_comparison_chart, defense_vs_attack_heatmap, defense_heatmap, defense_pie_chart, defense_summary_table]
         )

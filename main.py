@@ -1,15 +1,4 @@
-# =============================================================================
-# Prompt Injection Security Research
-# Main Entry Point
-# =============================================================================
-# This script provides the main entry point for running the web application.
-# 
-# Usage:
-#   python main.py              # Start web UI
-#   python main.py --cli        # Run CLI batch test
-#   python main.py --help       # Show help
-# =============================================================================
-
+from src.app import create_app
 import argparse
 import sys
 import os
@@ -17,8 +6,6 @@ import logging
 
 # Add src to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-from src.app import create_app
 
 
 def setup_logging(verbose: bool = False):
@@ -70,7 +57,7 @@ Examples:
   python main.py --share         # Create public Gradio link
         """
     )
-    
+
     parser.add_argument(
         '--port',
         type=int,
@@ -87,15 +74,15 @@ Examples:
         action='store_true',
         help='Enable verbose logging'
     )
-    
+
     args = parser.parse_args()
-    
+
     setup_logging(args.verbose)
-    
+
     print("Prompt Injection Security Research")
-    
+
     app, custom_css = create_app()
-    
+
     app.launch(
         # server_name="0.0.0.0",
         server_port=args.port,

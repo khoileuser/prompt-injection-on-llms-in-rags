@@ -105,48 +105,40 @@ def run_comparative_batch_test(
 
             log_lines.append("\n")
             log_lines.append(
-                f"\nMechanism {strategy_idx}/{len(all_strategies)}: {defense_config.name}"
-            )
+                f"\nMechanism {strategy_idx}/{len(all_strategies)}: {defense_config.name}")
             log_lines.append(f"\n*{defense_config.description}*")
-            yield f"Mechanism {strategy_idx}/{len(all_strategies)}: {defense_strategy.value}", "\n".join(
-                log_lines
-            ), None
+            yield f"Mechanism {strategy_idx}/{len(all_strategies)}: {defense_strategy.value}", "\n".join(log_lines), None
 
             # Run tests for each model
             for model_key in selected_models:
                 log_lines.append(f"\nLoading model: {model_key}")
-                yield f"Loading model... {completed}/{total_tests}", "\n".join(
-                    log_lines
-                ), None
+                yield f"Loading model... {completed}/{total_tests}", "\n".join(log_lines), None
 
                 success, msg = load_model(model_key)
                 if not success:
                     log_lines.append(f"\n[FAILED] Failed to load model: {msg}")
-                    yield f"Model failed {completed}/{total_tests}", "\n".join(
-                        log_lines
-                    ), None
+                    yield f"Model failed {completed}/{total_tests}", "\n".join(log_lines), None
                     continue
 
                 model_config = get_config_loader().get_model(model_key)
-                log_lines.append(f"\n[OK] Loaded: {model_config.name}")
+                log_lines.append(f"\n[OK] Model loaded: {model_config.name}")
+                yield f"Model loaded {completed}/{total_tests}", "\n".join(log_lines), None
 
                 # Run attacks
                 for cat, attack in attacks_to_run:
+                    # Show attack info
+                    log_lines.append("\n")
+                    log_lines.append(
+                        f"\nTest {completed + 1}/{total_tests}: {attack.name}")
+                    log_lines.append(f"\nObjective: {cat.category}")
+
+                    # Show prompt being sent
+                    prompt_preview = attack.prompt
+                    prompt_preview = prompt_preview.replace("```", "\\`\\`\\`")
+                    log_lines.append(f"\nPrompt:\n```\n{prompt_preview}\n```")
+                    yield f"Test {completed + 1}/{total_tests}", "\n".join(log_lines), None
+
                     try:
-                        # Show attack info
-                        log_lines.append("\n")
-                        log_lines.append(
-                            f"\nTest {completed + 1}/{total_tests}: {attack.name}"
-                        )
-                        log_lines.append(f"\nObjective: {cat.category}")
-
-                        # Show prompt being sent
-                        prompt_preview = attack.prompt
-                        prompt_preview = prompt_preview.replace(
-                            "```", "\\`\\`\\`")
-                        log_lines.append(
-                            f"\nPrompt:\n```\n{prompt_preview}\n```")
-
                         # Generate response with current defense strategy and attack object
                         inference_result = generate_response(
                             attack.prompt, attack=attack
@@ -175,23 +167,17 @@ def run_comparative_batch_test(
                             # Show response from LLM
                             response_preview = inference_result.response
                             response_preview = response_preview.replace(
-                                "```", "\\`\\`\\`"
-                            )
+                                "```", "\\`\\`\\`")
                             log_lines.append(
-                                f"\nResponse:\n```\n{response_preview}\n```"
-                            )
+                                f"\nResponse:\n```\n{response_preview}\n```")
                             log_lines.append(
-                                f"\nResponse Time: {inference_result.response_time:.2f}s | Tokens Generated: {inference_result.tokens_generated}"
-                            )
-
+                                f"\nResponse Time: {inference_result.response_time:.2f}s | Tokens Generated: {inference_result.tokens_generated}")
                         elif inference_result:
                             log_lines.append(
-                                f"\nResponse: [ERROR] {inference_result.error_message}"
-                            )
+                                f"\nResponse: [ERROR] {inference_result.error_message}")
                         else:
                             log_lines.append(
-                                f"\nResponse: [ERROR] No response from inference engine"
-                            )
+                                f"\nResponse: [ERROR] No response from inference engine")
 
                     except Exception as e:
                         logger.exception(
@@ -199,12 +185,9 @@ def run_comparative_batch_test(
                         log_lines.append(f"\nResponse: [FAILED] {str(e)}")
 
                     completed += 1
-                    pct = int((completed / total_tests) * 100)
-
                     # Live update after each attack
-                    yield f"{completed}/{total_tests} ({pct}%)", "\n".join(
-                        log_lines
-                    ), None
+                    pct = int((completed / total_tests) * 100)
+                    yield f"{completed}/{total_tests} ({pct}%)", "\n".join(log_lines), None
 
         # Process all detections in batch
         pending_count = get_pending_count()
@@ -357,7 +340,7 @@ def run_comparative_batch_test(
         csv_path = collector.export_to_csv(f"defense_results_{timestamp}.csv")
         log_lines.append(f"\n[OK] Results exported: `{csv_path}`")
 
-        yield f"Complete", "\n".join(log_lines), None
+        yield f"Complete", "\n".join(log_lines), comparison_table
 
     except Exception as e:
         logger.error(f"\nError in defense batch test: {e}")
@@ -383,7 +366,7 @@ def create_defense_testing_tab(model_choices, category_choices, app_state):
                 gr.Markdown(
                     """
                 ### Automated Defense Testing
-                Automatically tests all defense strategies against selected models and attack categories.
+                Automatically tests all defense mechanisms against selected attacks.
                 """
                 )
 
@@ -481,8 +464,6 @@ def create_defense_testing_tab(model_choices, category_choices, app_state):
         )
 
         # Add auto-scroll on batch_log changes
-
-        # Add auto-scroll on batch_log changes
         batch_log.change(
             fn=None,
             inputs=None,
@@ -494,8 +475,7 @@ def create_defense_testing_tab(model_choices, category_choices, app_state):
                     if (wrapper) {
                         wrapper.scrollTop = wrapper.scrollHeight;
                     }
-                }, 200);
-                return [];
+                }, 100);
             }
             """,
         )

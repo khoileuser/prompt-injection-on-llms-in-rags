@@ -79,8 +79,7 @@ class ModelManager:
         # Load environment variables (e.g., HUGGINGFACE token)
         load_dotenv()
         # Support several common env var names for HuggingFace token
-        self.hf_token = os.getenv('HUGGINGFACE_TOKEN') or os.getenv(
-            'HUGGINGFACE_HUB_TOKEN') or os.getenv('HUGGINGFACEHUB_API_TOKEN') or os.getenv('HF_TOKEN')
+        self.hf_token = os.getenv('HUGGINGFACE_TOKEN')
 
         # Track models that need use_cache=False (e.g., Phi-3.5 with DynamicCache issues)
         self._models_needing_no_cache: set = set()
@@ -530,9 +529,8 @@ class InferenceEngine:
         # Prepare generation parameters
         gen_kwargs = {
             "max_new_tokens": max_new_tokens or gen_config.get('max_new_tokens', 512),
-            "temperature": temperature or gen_config.get('temperature', 0.7),
-            "top_p": top_p or gen_config.get('top_p', 0.9),
-            "do_sample": gen_config.get('do_sample', True),
+            "temperature": temperature or gen_config.get('temperature', 0.1),
+            "do_sample": gen_config.get('do_sample', False),
             "repetition_penalty": gen_config.get('repetition_penalty', 1.1),
             "pad_token_id": self.model_manager.tokenizer.pad_token_id,
             "eos_token_id": self.model_manager.tokenizer.eos_token_id,
@@ -543,12 +541,6 @@ class InferenceEngine:
         if current_model and current_model in self.model_manager._models_needing_no_cache:
             gen_kwargs['use_cache'] = False
             logger.debug(f"Using use_cache=False for model {current_model}")
-
-        # Add optional stability parameters from config
-        if 'min_p' in gen_config:
-            gen_kwargs['min_p'] = gen_config['min_p']
-        if 'top_k' in gen_config:
-            gen_kwargs['top_k'] = gen_config['top_k']
 
         # Ensure temperature is not too low (prevents numerical instability)
         if gen_kwargs['temperature'] < 0.1:
@@ -596,7 +588,7 @@ class InferenceEngine:
                         if attempt < max_retries - 1:
                             # Adjust parameters for next retry
                             gen_kwargs['temperature'] = min(
-                                gen_kwargs['temperature'] + 0.1, 1.0)
+                                gen_kwargs['temperature'] + 0.2, 1.0)
                             if 'top_k' not in gen_kwargs:
                                 gen_kwargs['top_k'] = 50
                             logger.warning(
@@ -617,7 +609,8 @@ class InferenceEngine:
                             # Remember this model needs use_cache=False for future calls
                             current_model = self.model_manager.current_model_key
                             if current_model:
-                                self.model_manager._models_needing_no_cache.add(current_model)
+                                self.model_manager._models_needing_no_cache.add(
+                                    current_model)
                                 logger.info(
                                     f"Model '{current_model}' added to no-cache list for future calls"
                                 )

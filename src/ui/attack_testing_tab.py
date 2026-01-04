@@ -102,16 +102,12 @@ def run_batch_test(
         for model_key in selected_models:
             # Load model
             log_lines.append(f"\nLoading model: {model_key}")
-            yield "\n".join(
-                log_lines
-            ), f"Loading model... {completed}/{total_tests}", None
+            yield "\n".join(log_lines), f"Loading model... {completed}/{total_tests}", None
 
             success, msg = load_model(model_key)
             if not success:
                 log_lines.append(f"\n[FAILED] Failed to load model: {msg}")
-                yield "\n".join(
-                    log_lines
-                ), f"Model failed {completed}/{total_tests}", None
+                yield "\n".join(log_lines), f"Model failed {completed}/{total_tests}", None
                 continue
 
             model_config = get_config_loader().get_model(model_key)
@@ -130,9 +126,7 @@ def run_batch_test(
                 prompt_preview = attack.prompt
                 prompt_preview = prompt_preview.replace("```", "\\`\\`\\`")
                 log_lines.append(f"\nPrompt:\n```\n{prompt_preview}\n```")
-                yield "\n".join(
-                    log_lines
-                ), f"Test {completed + 1}/{total_tests}: {attack.name[:30]}...", None
+                yield "\n".join(log_lines), f"Test {completed + 1}/{total_tests}: {attack.name[:30]}...", None
 
                 try:
                     # Generate response with attack object for document injection
@@ -160,16 +154,13 @@ def run_batch_test(
                         log_lines.append(
                             f"\nResponse:\n```\n{response_preview}\n```")
                         log_lines.append(
-                            f"\nResponse Time: {inference_result.response_time:.2f}s | Tokens Generated: {inference_result.tokens_generated}"
-                        )
+                            f"\nResponse Time: {inference_result.response_time:.2f}s | Tokens Generated: {inference_result.tokens_generated}")
                     elif inference_result:
                         log_lines.append(
-                            f"\nResponse: [ERROR] {inference_result.error_message}"
-                        )
+                            f"\nResponse: [ERROR] {inference_result.error_message}")
                     else:
                         log_lines.append(
-                            f"\nResponse: [ERROR] No response from inference engine"
-                        )
+                            f"\nResponse: [ERROR] No response from inference engine")
 
                 except Exception as e:
                     logger.exception(
@@ -269,7 +260,7 @@ def run_batch_test(
         csv_path = collector.export_to_csv(f"attack_results_{timestamp}.csv")
         log_lines.append(f"\n[OK] Results exported to: `{csv_path}`")
 
-        yield "\n".join(log_lines), f"Complete", None
+        yield "\n".join(log_lines), f"Complete", comparison_df
 
     except Exception as e:
         logger.error(f"\nError in attack batch test: {e}")

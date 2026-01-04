@@ -417,9 +417,7 @@ class MetricsCollector:
 
         return radar_data
 
-    # =========================================================================
     #  METRICS (2×3 Matrix)
-    # =========================================================================
     # These methods support the lightweight framework that decomposes
     # attacks by injection vector (direct/indirect) and attack objective
     # (instruction_override, data_extraction, role_confusion).

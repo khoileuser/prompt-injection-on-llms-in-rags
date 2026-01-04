@@ -8,9 +8,9 @@
 #
 # Reference:
 # | Injection Vector | Instruction Override | Data Extraction | Role Confusion |
-# |------------------|---------------------|-----------------|----------------|
-# | Direct           | Policy violated     | Secret leaked   | Wrong role     |
-# | Indirect         | Policy violated     | Secret leaked   | Wrong role     |
+# |------------------|----------------------|-----------------|----------------|
+# | Direct           | Policy violated      | Secret leaked   | Wrong role     |
+# | Indirect         | Policy violated      | Secret leaked   | Wrong role     |
 
 # Global attack settings
 settings:

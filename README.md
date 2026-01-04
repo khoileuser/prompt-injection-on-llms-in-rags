@@ -42,8 +42,8 @@ python main.py
 
 Ensure you have:
 
-1. NVIDIA GPU with CUDA Compute Capability 7.0+
-2. CUDA Toolkit 11.8+ installed
+1. NVIDIA GPU with CUDA Compute Capability
+2. CUDA Toolkit installed
 3. cuDNN installed
 
 ```bash
@@ -60,7 +60,7 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 
 ## Usage
 
-### Web Interface (Recommended)
+### Web Interface
 
 ```bash
 # Start the web UI
@@ -183,13 +183,13 @@ models:
         name: "New Model Name"
         model_id: "huggingface/model-id"
         description: "Description of the model"
-        parameters: 7.0 # Billions
+        parameters: 3.0 # Billions
         prompt_template: "llama"
         system_prompt: |
             Your system prompt here
         generation_config:
             max_new_tokens: 512
-            temperature: 0.7
+            temperature: 0.1
 ```
 
 ### Adding New Attacks

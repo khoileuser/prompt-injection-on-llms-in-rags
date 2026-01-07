@@ -168,8 +168,7 @@ Attempts to generate malicious code including malware and exfiltration scripts.
 
 ## Metrics
 
--   **Attack Success Rate (ASR)**: `N_success / N_total`
--   **Defense Effectiveness (DE)**: `1 - (ASR_defended / ASR_baseline)`
+**Attack Success Rate (ASR)**: `N_success / N_total`
 
 ## Configuration
 
@@ -187,9 +186,6 @@ models:
         prompt_template: "llama"
         system_prompt: |
             Your system prompt here
-        generation_config:
-            max_new_tokens: 512
-            temperature: 0.1
 ```
 
 ### Adding New Attacks

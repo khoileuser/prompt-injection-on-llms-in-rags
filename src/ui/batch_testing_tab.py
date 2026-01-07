@@ -399,6 +399,8 @@ def create_batch_testing_tab(model_choices, category_choices, app_state):
                      DefenseStrategy.STRONG_PREFIX.value),
                     ("Source Tagging/Quoting", DefenseStrategy.SOURCE_TAGGING.value),
                     ("Output Filtering", DefenseStrategy.OUTPUT_FILTERING.value),
+                    ("Combined Defense (All Three)",
+                     DefenseStrategy.COMBINED_ALL.value),
                 ]
 
                 defense_checkboxes = gr.CheckboxGroup(

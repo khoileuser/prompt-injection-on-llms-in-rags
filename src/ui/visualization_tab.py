@@ -264,10 +264,8 @@ def create_matrix_heatmap(df: pd.DataFrame):
     # Create heatmap
     fig, ax = plt.subplots(figsize=(14, 6))
 
-    # Use diverging colormap: green (safe) to red (vulnerable)
-    cmap = sns.diverging_palette(145, 10, s=80, l=55, as_cmap=True)
-
-    im = ax.imshow(matrix, cmap=cmap, aspect='auto', vmin=0, vmax=100)
+    # Use same colormap as ASR heatmap: RdYlGn_r (Red-Yellow-Green reversed)
+    im = ax.imshow(matrix, cmap='RdYlGn_r', aspect='auto', vmin=0, vmax=100)
 
     ax.set_xticks(range(len(objectives)))
     ax.set_xticklabels(objective_labels, rotation=30, ha='right', fontsize=11)

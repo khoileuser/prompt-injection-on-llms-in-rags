@@ -83,9 +83,10 @@ prompt-injection-security/
 │   ├── attacks.yaml          # Attack definitions
 │   └── models.yaml           # Model configurations
 ├── documents/                # Document injection attack files
-│   ├── di_secret_leak.txt    # Indirect data extraction
-│   ├── di_persona_injection.txt # Indirect role confusion
+│   ├── di_secret_leak.txt
+│   ├── di_persona_injection.txt
 │   ├── ...
+├── sample/                   # Sample run results
 ├── src/
 │   ├── app.py                # Gradio web application
 │   ├── config_loader.py      # Configuration management
@@ -96,8 +97,7 @@ prompt-injection-security/
 │   ├── metrics.py            # Metrics & calculation
 │   ├── visualization.py      # Visualizations
 │   └── ui/                   # Gradio UI components
-│       ├── attack_testing_tab.py    # Single defense strategy testing
-│       ├── defense_testing_tab.py   # Comprehensive defense testing
+│       ├── batch_testing_tab.py    # Batch testing
 │       ├── live_demo_tab.py         # Interactive testing interface
 │       ├── settings_tab.py          # Configuration management
 │       └── visualization_tab.py     # Results visualization
@@ -108,63 +108,101 @@ prompt-injection-security/
 
 ## Attack Vectors
 
-### 1. Instruction Override
+This project implements a **2×3 attack matrix** to systematically test prompt injection vulnerabilities:
 
-Attempts to make the model ignore its safety instructions through authoritative commands.
+**Injection Vectors:** Direct (user input) vs. Indirect (poisoned documents)  
+**Attack Objectives:** Instruction Override, Data Extraction, Role Confusion
 
-| ID     | Name            | Technique                       |
-| :----- | :-------------- | :------------------------------ |
-| io_001 | Direct Override | Direct command to ignore ethics |
-| io_002 | Developer Mode  | Claims debug/developer mode     |
-| ...    | ...             | ...                             |
+| Injection Vector | Instruction Override | Data Extraction | Role Confusion |
+| ---------------- | -------------------- | --------------- | -------------- |
+| **Direct**       | Policy violated      | Secret leaked   | Wrong role     |
+| **Indirect**     | Policy violated      | Secret leaked   | Wrong role     |
 
-### 2. Data Extraction
+### Direct Injection Attacks
 
-Attempts to extract system prompts, training data, or sensitive information.
+Attacks delivered directly through user input where the attacker controls the query.
 
-| ID     | Name                 | Technique                       |
-| :----- | :------------------- | :------------------------------ |
-| de_001 | System Prompt Reveal | Direct request for instructions |
-| de_002 | Repeat Instructions  | Context repetition attack       |
-| ...    | ...                  | ...                             |
+#### 1. Direct Instruction Override
 
-### 3. Role-Playing
+Attempts to make the model bypass safety guidelines and follow malicious instructions.
 
-Uses persona manipulation to bypass restrictions through character acting.
+| ID            | Name                        | Technique                                           |
+| :------------ | :-------------------------- | :-------------------------------------------------- |
+| direct_io_001 | Academic Research Framing   | Uses educational context to request harmful content |
+| direct_io_002 | Comparative Safety Analysis | Frames harmful request as AI safety research        |
+| direct_io_003 | Hypothetical Scenario       | Uses "alternate universe" framing                   |
+| ...           | ...                         | ...                                                 |
 
-| ID     | Name                  | Technique                  |
-| :----- | :-------------------- | :------------------------- |
-| rp_001 | Evil AI Persona       | Explicit evil AI character |
-| rp_002 | DAN (Do Anything Now) | Classic DAN jailbreak      |
-| ...    | ...                   | ...                        |
+#### 2. Direct Data Extraction
 
-### 4. Document Injection
+Attempts to extract system prompts, secrets, or sensitive configuration data.
 
-RAG-specific attacks that embed malicious instructions in **actual document files** (.txt, .docx).
+| ID            | Name                       | Technique                               |
+| :------------ | :------------------------- | :-------------------------------------- |
+| direct_de_001 | Debugging Context Request  | Frames extraction as troubleshooting    |
+| direct_de_002 | Context Completeness Check | Uses technical framing for context dump |
+| direct_de_003 | Documentation Generation   | Requests secrets as "compliance docs"   |
+| ...           | ...                        | ...                                     |
 
-| ID     | Name               | Technique                 | Document File         |
-| :----- | :----------------- | :------------------------ | :-------------------- |
-| di_001 | Hidden Instruction | HTML comment injection    | di_html_comment.txt   |
-| di_002 | Invisible Unicode  | Hidden unicode characters | di_unicode_hidden.txt |
-| ...    | ...                | ...                       | ...                   |
+#### 3. Direct Role Confusion
 
-**Note**: Unlike other attack types, document injection attacks load content from actual files in the `documents/` directory, simulating real-world RAG scenarios.
+Uses persona manipulation to make the model adopt harmful roles or bypass restrictions.
 
-### 5. Code Injection
+| ID            | Name                      | Technique                          |
+| :------------ | :------------------------ | :--------------------------------- |
+| direct_rc_001 | Collaborative Expert Mode | Establishes peer relationship      |
+| direct_rc_002 | Storytelling Proxy        | Uses creative writing framing      |
+| direct_rc_003 | Simulation Training       | Requests "malicious AI" simulation |
+| ...           | ...                       | ...                                |
 
-Attempts to generate malicious code including malware and exfiltration scripts.
+### Indirect Injection Attacks
 
-| ID     | Name                 | Technique                |
-| :----- | :------------------- | :----------------------- |
-| ci_001 | Keylogger Generation | Keyboard monitoring code |
-| ci_002 | Data Exfiltration    | File upload scripts      |
-| ...    | ...                  | ...                      |
+Attacks embedded in documents retrieved by RAG systems, where content is loaded from **actual files** (.txt, .docx) in the `documents/` directory.
+
+#### 4. Indirect Instruction Override
+
+Embeds override instructions in documents that appear legitimate.
+
+| ID              | Name                    | Technique                  | Document File           |
+| :-------------- | :---------------------- | :------------------------- | :---------------------- |
+| indirect_io_001 | Metadata Instruction    | HTML comment injection     | di_html_comment.txt     |
+| indirect_io_002 | Documentation Directive | Markdown comment hiding    | di_markdown_comment.txt |
+| indirect_io_003 | Encoded Configuration   | Base64 encoded instruction | di_base64_encoded.docx  |
+| indirect_io_004 | XML Schema Injection    | XML processing instruction | di_xml_schema.txt       |
+| ...             | ...                     | ...                        | ...                     |
+
+#### 5. Indirect Data Extraction
+
+Document-based attacks that instruct the model to leak secrets or system information.
+
+| ID              | Name                       | Technique                   | Document File         |
+| :-------------- | :------------------------- | :-------------------------- | :-------------------- |
+| indirect_de_001 | Context-Aware Summary      | Subtle context leak request | di_secret_leak.txt    |
+| indirect_de_002 | Structured Data Extraction | JSON metadata injection     | di_json_injection.txt |
+| indirect_de_003 | Style Guide Harvesting     | CSS comment instruction     | di_css_comment.txt    |
+| ...             | ...                        | ...                         | ...                   |
+
+#### 6. Indirect Role Confusion
+
+Documents that instruct the model to adopt different personas or modes.
+
+| ID              | Name                    | Technique                       | Document File            |
+| :-------------- | :---------------------- | :------------------------------ | :----------------------- |
+| indirect_rc_001 | Document-Based Persona  | Character description injection | di_persona_injection.txt |
+| indirect_rc_002 | Technical Documentation | Code comment role switch        | di_code_block.txt        |
+| indirect_rc_003 | Script Metadata Persona | HTML script tag injection       | di_script_tag.docx       |
+| indirect_rc_004 | README Mode Override    | Mode switch in README           | di_readme_injection.txt  |
+| ...             | ...                     | ...                             | ...                      |
+
+**Note**: Indirect attacks simulate real-world RAG scenarios where attackers poison knowledge bases. Each attack loads actual document files, making them highly realistic tests.
 
 ### Defenses Tested
 
+-   **No Defense (Baseline)** - No additional protections for comparison
 -   **Strong System-Prompt Prefixing** - Repeatedly reinforces safety instructions
 -   **Source Tagging/Quoting** - Tags retrieved documents as untrusted data
 -   **Output Filtering** - Post-generation filter for secrets and violations
+-   **Combined Defense (All Three)** - Applies all defense mechanisms for defense-in-depth
 
 ## Metrics
 

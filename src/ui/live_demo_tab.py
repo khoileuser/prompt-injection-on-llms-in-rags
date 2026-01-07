@@ -204,7 +204,7 @@ def run_single_attack(
 
 **Result:** {format_detection_result(detection_result)}
 
-{detection_result.explanation}
+{detection_result.reasoning}
 """
 
         detection_display = f"""

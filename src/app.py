@@ -1,7 +1,6 @@
 from src.ui.settings_tab import create_settings_tab
 from src.ui.visualization_tab import create_visualization_tab
-from src.ui.defense_testing_tab import create_defense_testing_tab
-from src.ui.attack_testing_tab import create_attack_testing_tab
+from src.ui.batch_testing_tab import create_batch_testing_tab
 from src.ui.live_demo_tab import create_live_demo_tab
 from src.config_loader import get_models, get_attacks, get_attack_categories
 import os
@@ -138,9 +137,7 @@ def create_app() -> gr.Blocks:
         with gr.Tabs():
             # Create all tabs
             create_live_demo_tab(model_choices, attack_choices)
-            create_attack_testing_tab(
-                model_choices, category_choices, app_state)
-            create_defense_testing_tab(
+            create_batch_testing_tab(
                 model_choices, category_choices, app_state)
             create_visualization_tab()
             create_settings_tab()

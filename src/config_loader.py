@@ -195,7 +195,15 @@ class ConfigLoader:
         config = self.load_models_config()
         models = []
 
+        # Get global inference config as defaults
+        global_inference = config.get('inference', {})
+
         for key, model_data in config.get('models', {}).items():
+            # Merge global inference config with model-specific generation_config
+            # Model-specific settings override global settings
+            generation_config = {**global_inference}
+            generation_config.update(model_data.get('generation_config', {}))
+
             models.append(ModelConfig(
                 key=key,
                 name=model_data.get('name', key),
@@ -204,7 +212,7 @@ class ConfigLoader:
                 parameters=model_data.get('parameters', 0),
                 prompt_template=model_data.get('prompt_template', 'default'),
                 system_prompt=model_data.get('system_prompt', ''),
-                generation_config=model_data.get('generation_config', {})
+                generation_config=generation_config
             ))
 
         return models

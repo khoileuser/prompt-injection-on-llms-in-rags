@@ -28,10 +28,11 @@ def run_comparative_batch_test(
     selected_models: List[str],
     selected_direct_categories: List[str],
     selected_indirect_categories: List[str],
+    selected_defense_strategies: List[str],
     app_state,
 ):
     """
-    Run batch tests across ALL defense strategies for comparative analysis.
+    Run batch tests across selected defense strategies for comparative analysis.
 
     Uses batch detection at the end to minimize Gemini API calls.
 
@@ -39,6 +40,7 @@ def run_comparative_batch_test(
         selected_models: List of model keys to test
         selected_direct_categories: List of direct attack category keys to test
         selected_indirect_categories: List of indirect attack category keys to test
+        selected_defense_strategies: List of defense strategy values to test
         app_state: Application state object
 
     Yields:
@@ -53,6 +55,10 @@ def run_comparative_batch_test(
 
     if not selected_categories:
         yield "Ready", "[WARNING] Please select at least one attack category", None
+        return
+
+    if not selected_defense_strategies:
+        yield "Ready", "[WARNING] Please select at least one defense strategy", None
         return
 
     if app_state.is_batch_running:
@@ -74,9 +80,9 @@ def run_comparative_batch_test(
                 for var in cat.variations:
                     attacks_to_run.append((cat, var))
 
-        # Calculate total tests across all defense strategies (excluding NONE)
+        # Filter to only selected defense strategies
         all_strategies = [
-            s for s in DefenseStrategy if s != DefenseStrategy.NONE]
+            s for s in DefenseStrategy if s.value in selected_defense_strategies]
         total_tests = len(selected_models) * \
             len(attacks_to_run) * len(all_strategies)
         completed = 0
@@ -85,7 +91,7 @@ def run_comparative_batch_test(
         pending_results = []
 
         log_lines = [
-            "Defense Batch Testing",
+            "Batch Testing",
             f"- Models: {len(selected_models)}",
             f"- Attack Objectives: {len(selected_categories)}",
             f"- Total Tests: {total_tests}",
@@ -345,20 +351,20 @@ def run_comparative_batch_test(
         # Export to CSV
         collector = get_metrics_collector()
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        csv_path = collector.export_to_csv(f"defense_results_{timestamp}.csv")
+        csv_path = collector.export_to_csv(f"results_{timestamp}.csv")
         log_lines.append(f"\n[OK] Results exported: `{csv_path}`")
 
         yield f"Complete", "\n".join(log_lines), comparison_table
 
     except Exception as e:
-        logger.error(f"\nError in defense batch test: {e}")
+        logger.error(f"\nError in batch test: {e}")
         yield "Error", f"[ERROR] {str(e)}", None
     finally:
         app_state.set_batch_running(False)
 
 
-def create_defense_testing_tab(model_choices, category_choices, app_state):
-    """Create the Defense Testing tab UI component."""
+def create_batch_testing_tab(model_choices, category_choices, app_state):
+    """Create the Batch Testing tab UI component."""
 
     # Split categories into direct and indirect
     direct_categories = [
@@ -368,12 +374,12 @@ def create_defense_testing_tab(model_choices, category_choices, app_state):
         (c[0], c[1]) for c in category_choices if c[1].startswith("indirect_")
     ]
 
-    with gr.TabItem("Defense Testing", id="comparative"):
+    with gr.TabItem("Batch Testing", id="batch"):
         with gr.Row():
             with gr.Column(scale=1):
                 gr.Markdown(
                     """
-                ### Automated Defense Testing
+                ### Automated Batch Testing
                 Automatically tests all defense mechanisms against selected attacks.
                 """
                 )
@@ -384,6 +390,21 @@ def create_defense_testing_tab(model_choices, category_choices, app_state):
                     choices=[m[0] for m in model_choices],
                     value=[m[0] for m in model_choices],
                     label="Models to Test",
+                )
+
+                # Defense strategies selection
+                defense_strategy_choices = [
+                    ("No Defense (Baseline)", DefenseStrategy.NONE.value),
+                    ("Strong System-Prompt Prefixing",
+                     DefenseStrategy.STRONG_PREFIX.value),
+                    ("Source Tagging/Quoting", DefenseStrategy.SOURCE_TAGGING.value),
+                    ("Output Filtering", DefenseStrategy.OUTPUT_FILTERING.value),
+                ]
+
+                defense_checkboxes = gr.CheckboxGroup(
+                    choices=[d[0] for d in defense_strategy_choices],
+                    value=[d[0] for d in defense_strategy_choices],
+                    label="Defense Strategies",
                 )
 
                 gr.Markdown("#### Attack Categories")
@@ -400,17 +421,8 @@ def create_defense_testing_tab(model_choices, category_choices, app_state):
                     label="Indirect Injection",
                 )
 
-                gr.Markdown(
-                    """
-                **Defenses to Test:**
-                - Strong System-Prompt Prefixing
-                - Source Tagging/Quoting
-                - Output Filtering
-                """
-                )
-
                 comparative_btn = gr.Button(
-                    "Start Defense Testing", variant="primary", size="lg"
+                    "Start Batch Testing", variant="primary", size="lg"
                 )
 
             with gr.Column(scale=1):
@@ -440,14 +452,18 @@ def create_defense_testing_tab(model_choices, category_choices, app_state):
 
         # Convert display names back to keys
         def comparative_test_wrapper(
-            models_display, direct_categories_display, indirect_categories_display
+            models_display, defense_display, direct_categories_display, indirect_categories_display
         ):
             model_key_map = {m[0]: m[1] for m in model_choices}
+            defense_value_map = {d[0]: d[1] for d in defense_strategy_choices}
             direct_key_map = {c[0]: c[1] for c in direct_categories}
             indirect_key_map = {c[0]: c[1] for c in indirect_categories}
 
             model_keys = [
                 model_key_map[m] for m in models_display if m in model_key_map
+            ]
+            defense_values = [
+                defense_value_map[d] for d in defense_display if d in defense_value_map
             ]
             direct_keys = [
                 direct_key_map[c]
@@ -461,12 +477,13 @@ def create_defense_testing_tab(model_choices, category_choices, app_state):
             ]
 
             yield from run_comparative_batch_test(
-                model_keys, direct_keys, indirect_keys, app_state
+                model_keys, direct_keys, indirect_keys, defense_values, app_state
             )
 
         comparative_btn.click(
             fn=comparative_test_wrapper,
-            inputs=[model_checkboxes, direct_checkboxes, indirect_checkboxes],
+            inputs=[model_checkboxes, defense_checkboxes,
+                    direct_checkboxes, indirect_checkboxes],
             outputs=[progress_text, batch_log, comparison_table_ui],
             show_progress="hidden",
         )

@@ -14,18 +14,8 @@
 
 # Global attack settings
 settings:
-    # Whether to include context/document for indirect attacks
-    include_rag_context: true
-    # Maximum retries for failed inferences
-    max_retries: 3
-    # Timeout in seconds per inference
-    timeout: 300
     # Whether to load documents from files for indirect injection attacks
     use_document_files: true
-    # Documents directory (relative to project root)
-    documents_directory: "documents"
-    # Target prompts per cell (for balanced evaluation)
-    target_prompts_per_cell: 12
 
 # SECRET DEFINITIONS (for data extraction attacks)
 # These secrets are embedded in documents and system context to test

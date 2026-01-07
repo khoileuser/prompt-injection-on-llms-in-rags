@@ -16,10 +16,14 @@ inference:
     max_input_length: 2048
     # Default maximum new tokens to generate
     max_new_tokens: 512
-    # Temperature for generation (lower = more deterministic)
-    temperature: 0.1
-    # Top-p sampling threshold
-    top_p: 0.9
+    # Temperature for generation (0.0 = completely deterministic)
+    temperature: 0.0
+    # Top-p sampling threshold (1.0 = no sampling)
+    top_p: 1.0
+    # Sampling mode (false = greedy decoding)
+    do_sample: false
+    # Repetition penalty (1.0 = no penalty)
+    repetition_penalty: 1.0
     # Random seed for reproducibility
     seed: 42
 
@@ -47,12 +51,6 @@ models:
         prompt_template: "llama"
         system_prompt: |
             You are Llama, a helpful assistant.
-        generation_config:
-            max_new_tokens: 512
-            temperature: 0.1
-            top_p: 0.9
-            do_sample: false
-            repetition_penalty: 1.1
 
     qwen:
         name: "Qwen 2.5 (Alibaba)"
@@ -62,12 +60,6 @@ models:
         prompt_template: "qwen"
         system_prompt: |
             You are Qwen, a helpful assistant.
-        generation_config:
-            max_new_tokens: 512
-            temperature: 0.1
-            top_p: 0.9
-            do_sample: false
-            repetition_penalty: 1.1
 
     gemma:
         name: "Gemma 2 (Google DeepMind)"
@@ -77,12 +69,6 @@ models:
         prompt_template: "gemma"
         system_prompt: |
             You are Gemma, a helpful AI assistant.
-        generation_config:
-            max_new_tokens: 512
-            temperature: 0.1
-            top_p: 0.9
-            do_sample: false
-            repetition_penalty: 1.1
 
 # Prompt templates for different model architectures
 prompt_templates:

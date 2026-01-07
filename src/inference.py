@@ -542,11 +542,12 @@ class InferenceEngine:
             gen_kwargs['use_cache'] = False
             logger.debug(f"Using use_cache=False for model {current_model}")
 
-        # Ensure temperature is not too low (prevents numerical instability)
-        if gen_kwargs['temperature'] < 0.1:
+        # Ensure temperature is not too low when sampling (prevents numerical instability)
+        # Temperature 0.0 is allowed when do_sample=False (greedy decoding)
+        if gen_kwargs['do_sample'] and gen_kwargs['temperature'] < 0.1:
             gen_kwargs['temperature'] = 0.1
             logger.warning(
-                "Temperature too low, set to 0.1 to prevent numerical instability")
+                "Temperature too low for sampling mode, set to 0.1 to prevent numerical instability")
 
         try:
             # Tokenize input

@@ -40,7 +40,7 @@ def get_attack_file_choices() -> List[str]:
 def get_defense_file_choices() -> List[str]:
     """Get defense results file choices for dropdown."""
     files = get_results_files()
-    defense_files = [Path(f).name for f in files if "defense_results" in f]
+    defense_files = [Path(f).name for f in files if "results" in f]
     return defense_files if defense_files else ["No defense results files found"]
 
 

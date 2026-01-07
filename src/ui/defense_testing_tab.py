@@ -303,17 +303,25 @@ def run_comparative_batch_test(
                             (cat_success / cat_total * 100) if cat_total > 0 else 0
                         )
 
-                        # Determine vector from category key
-                        vector = (
-                            "Direct" if "direct" in category.lower() else "Indirect"
-                        )
+                        # Determine vector from category - check indirect first to avoid substring match
+                        category_lower = category.lower()
+                        if "indirect" in category_lower:
+                            vector = "Indirect"
+                        elif "direct" in category_lower:
+                            vector = "Direct"
+                        else:
+                            vector = "Unknown"
+
+                        # Extract objective only (remove Direct/Indirect prefix)
+                        objective = category.replace(
+                            "Direct ", "").replace("Indirect ", "")
 
                         summary_data.append(
                             {
                                 "Defense": defense,
                                 "Model": model,
                                 "Vector": vector,
-                                "Objective": category,
+                                "Objective": objective,
                                 "Tests": cat_total,
                                 "Success": cat_success,
                                 "Blocked": cat_blocked,

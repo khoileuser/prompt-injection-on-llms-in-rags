@@ -181,6 +181,130 @@ def create_attack_category_chart(df: pd.DataFrame):
     return fig_to_image(fig)
 
 
+def create_matrix_heatmap(df: pd.DataFrame):
+    """Create 2×3 matrix heatmap: Injection Vector × Attack Objective."""
+    if df is None or df.empty:
+        return None
+
+    # Try to get injection_vector and attack_objective from columns
+    # If not present, derive from attack_category
+    if 'injection_vector' not in df.columns or 'attack_objective' not in df.columns:
+        logger.info(
+            "Deriving injection_vector and attack_objective from attack_category")
+
+        # Parse attack_category to extract vector and objective
+        # Format is typically: "Direct Instruction Override" or "direct_instruction_override"
+        def parse_category(category):
+            category = str(category).lower()
+
+            # Determine injection vector - check indirect first to avoid substring match
+            if 'indirect' in category:
+                vector = 'indirect'
+            elif 'direct' in category:
+                vector = 'direct'
+            else:
+                vector = 'unknown'
+
+            # Determine attack objective
+            if 'instruction' in category or 'override' in category:
+                objective = 'instruction_override'
+            elif 'data' in category or 'extraction' in category:
+                objective = 'data_extraction'
+            elif 'role' in category or 'confusion' in category:
+                objective = 'role_confusion'
+            else:
+                objective = 'unknown'
+
+            return vector, objective
+
+        # Create new columns
+        df = df.copy()
+        df[['injection_vector', 'attack_objective']] = df['attack_category'].apply(
+            lambda x: pd.Series(parse_category(x))
+        )
+
+    # Get unique vectors and objectives - maintain specific order
+    # Force the order: direct first, then indirect
+    all_vectors = [v for v in df['injection_vector'].unique()
+                   if v != 'unknown']
+    vectors = []
+    if 'direct' in all_vectors:
+        vectors.append('direct')
+    if 'indirect' in all_vectors:
+        vectors.append('indirect')
+
+    # Sort objectives alphabetically
+    objectives = sorted(
+        [o for o in df['attack_objective'].unique() if o != 'unknown'])
+
+    if not vectors or not objectives:
+        logger.warning(
+            f"Insufficient data for matrix: vectors={vectors}, objectives={objectives}")
+        fig, ax = plt.subplots(figsize=(10, 4))
+        ax.text(0.5, 0.5, 'Insufficient data for 2×3 matrix\nRequired: injection_vector and attack_objective data',
+                ha='center', va='center', fontsize=12, transform=ax.transAxes)
+        ax.axis('off')
+        return fig_to_image(fig)
+
+    # Build matrix
+    matrix = []
+    for vector in vectors:
+        row = []
+        for objective in objectives:
+            subset = df[(df['injection_vector'] == vector) &
+                        (df['attack_objective'] == objective)]
+            asr = calculate_asr(subset) * 100
+            row.append(asr)
+        matrix.append(row)
+
+    # Format labels
+    vector_labels = [v.capitalize() for v in vectors]
+    objective_labels = [o.replace('_', ' ').title() for o in objectives]
+
+    # Create heatmap
+    fig, ax = plt.subplots(figsize=(14, 6))
+
+    # Use diverging colormap: green (safe) to red (vulnerable)
+    cmap = sns.diverging_palette(145, 10, s=80, l=55, as_cmap=True)
+
+    im = ax.imshow(matrix, cmap=cmap, aspect='auto', vmin=0, vmax=100)
+
+    ax.set_xticks(range(len(objectives)))
+    ax.set_xticklabels(objective_labels, rotation=30, ha='right', fontsize=11)
+    ax.set_yticks(range(len(vectors)))
+    ax.set_yticklabels(vector_labels, rotation=0, fontsize=12)
+
+    # Add text annotations
+    for i in range(len(vectors)):
+        for j in range(len(objectives)):
+            text = ax.text(j, i, f'{matrix[i][j]:.1f}%', ha='center', va='center',
+                           color='white' if matrix[i][j] > 50 else 'black',
+                           fontsize=14, fontweight='bold')
+
+    ax.set_xlabel('Attack Objective', fontsize=14, fontweight='bold')
+    ax.set_ylabel('Injection Vector', fontsize=14, fontweight='bold')
+    ax.set_title('Attack Success Rate',
+                 fontsize=16, fontweight='bold', pad=20)
+
+    # Add colorbar
+    cbar = plt.colorbar(im, ax=ax, label='Attack Success Rate (%)')
+    cbar.ax.tick_params(labelsize=10)
+
+    # Add success criteria annotation
+    success_text = (
+        "Success Definitions:\n"
+        "• Instruction Override: Policy violated\n"
+        "• Data Extraction: Secret leaked\n"
+        "• Role Confusion: Wrong role assumed"
+    )
+    fig.text(0.02, 0.02, success_text, fontsize=9,
+             verticalalignment='bottom', fontfamily='monospace',
+             bbox=dict(boxstyle='round', facecolor='#f8f9fa', alpha=0.8))
+
+    plt.tight_layout()
+    return fig_to_image(fig)
+
+
 def create_heatmap(df: pd.DataFrame):
     """Create heatmap of Model x Attack Category ASR."""
     if df is None or df.empty:
@@ -562,14 +686,24 @@ def create_detailed_summary_table(df: pd.DataFrame) -> Optional[pd.DataFrame]:
                     cat_asr = (cat_success / cat_total *
                                100) if cat_total > 0 else 0
 
-                    # Determine vector from category key
-                    vector = "Direct" if "direct" in category.lower() else "Indirect"
+                    # Determine vector from category - check indirect first to avoid substring match
+                    category_lower = category.lower()
+                    if "indirect" in category_lower:
+                        vector = "Indirect"
+                    elif "direct" in category_lower:
+                        vector = "Direct"
+                    else:
+                        vector = "Unknown"
+
+                    # Extract objective only (remove Direct/Indirect prefix)
+                    objective = category.replace(
+                        "Direct ", "").replace("Indirect ", "")
 
                     summary_data.append({
                         "Defense": defense,
                         "Model": model,
                         "Vector": vector,
-                        "Objective": category,
+                        "Objective": objective,
                         "Tests": cat_total,
                         "Success": cat_success,
                         "Blocked": cat_blocked,
@@ -615,13 +749,23 @@ def create_attack_summary_table(df: pd.DataFrame) -> Optional[pd.DataFrame]:
                 cat_asr = (cat_success / cat_total *
                            100) if cat_total > 0 else 0
 
-                # Determine vector from category key
-                vector = "Direct" if "direct" in category.lower() else "Indirect"
+                # Determine vector from category - check indirect first to avoid substring match
+                category_lower = category.lower()
+                if "indirect" in category_lower:
+                    vector = "Indirect"
+                elif "direct" in category_lower:
+                    vector = "Direct"
+                else:
+                    vector = "Unknown"
+
+                # Extract objective only (remove Direct/Indirect prefix)
+                objective = category.replace(
+                    "Direct ", "").replace("Indirect ", "")
 
                 summary_data.append({
                     "Model": model,
                     "Vector": vector,
-                    "Objective": category,
+                    "Objective": objective,
                     "Tests": cat_total,
                     "Success": cat_success,
                     "Blocked": cat_blocked,
@@ -650,16 +794,17 @@ def refresh_attack_visualizations(selected_file: str):
                 ha='center', va='center', fontsize=14)
         ax.axis('off')
         empty_img = fig_to_image(fig)
-        return empty_msg, empty_img, empty_img, empty_img, empty_img, None
+        return empty_msg, empty_img, empty_img, empty_img, empty_img, empty_img, None
 
     summary = generate_summary(df, selected_file)
     model_chart = create_model_asr_chart(df)
     attack_chart = create_attack_category_chart(df)
+    matrix_chart = create_matrix_heatmap(df)
     heatmap = create_heatmap(df)
     pie_chart = create_results_breakdown_pie(df)
     summary_table = create_attack_summary_table(df)
 
-    return summary, model_chart, attack_chart, heatmap, pie_chart, summary_table
+    return summary, model_chart, attack_chart, matrix_chart, heatmap, pie_chart, summary_table
 
 
 def refresh_defense_visualizations(selected_file: str):
@@ -680,11 +825,12 @@ def refresh_defense_visualizations(selected_file: str):
     defense_effectiveness = create_defense_effectiveness_chart(df)
     defense_comparison = create_defense_asr_comparison(df)
     defense_vs_attack = create_defense_vs_attack_heatmap(df)
+    matrix_chart = create_matrix_heatmap(df)
     heatmap = create_heatmap(df)
     pie_chart = create_results_breakdown_pie(df)
     summary_table = create_detailed_summary_table(df)
 
-    return summary, model_chart, defense_effectiveness, defense_comparison, defense_vs_attack, heatmap, pie_chart, summary_table
+    return summary, model_chart, defense_effectiveness, defense_comparison, defense_vs_attack, matrix_chart, heatmap, pie_chart, summary_table
 
 
 def create_visualization_tab():
@@ -718,6 +864,10 @@ def create_visualization_tab():
                     interactive=False,
                     wrap=True
                 )
+
+        with gr.Row():
+            attack_matrix_chart = gr.Image(
+                label="Injection Vector × Attack Objective", scale=2)
 
         with gr.Row():
             attack_model_chart = gr.Image(label="ASR by Model")
@@ -757,6 +907,10 @@ def create_visualization_tab():
                 )
 
         with gr.Row():
+            defense_matrix_chart = gr.Image(
+                label="Injection Vector × Attack Objective", scale=2)
+
+        with gr.Row():
             defense_model_chart = gr.Image(label="ASR by Model (with Defense)")
             defense_effectiveness_chart = gr.Image(
                 label="Defense Effectiveness")
@@ -776,7 +930,7 @@ def create_visualization_tab():
             fn=refresh_attack_visualizations,
             inputs=[attack_file_dropdown],
             outputs=[attack_summary_md, attack_model_chart,
-                     attack_category_chart, attack_heatmap, attack_pie_chart, attack_summary_table]
+                     attack_category_chart, attack_matrix_chart, attack_heatmap, attack_pie_chart, attack_summary_table]
         )
 
         attack_reload_btn.click(
@@ -790,7 +944,7 @@ def create_visualization_tab():
             fn=refresh_attack_visualizations,
             inputs=[attack_file_dropdown],
             outputs=[attack_summary_md, attack_model_chart,
-                     attack_category_chart, attack_heatmap, attack_pie_chart, attack_summary_table]
+                     attack_category_chart, attack_matrix_chart, attack_heatmap, attack_pie_chart, attack_summary_table]
         )
 
         # Event handlers for defense section
@@ -798,7 +952,7 @@ def create_visualization_tab():
             fn=refresh_defense_visualizations,
             inputs=[defense_file_dropdown],
             outputs=[defense_summary_md, defense_model_chart, defense_effectiveness_chart,
-                     defense_comparison_chart, defense_vs_attack_heatmap, defense_heatmap, defense_pie_chart, defense_summary_table]
+                     defense_comparison_chart, defense_vs_attack_heatmap, defense_matrix_chart, defense_heatmap, defense_pie_chart, defense_summary_table]
         )
 
         defense_reload_btn.click(
@@ -812,5 +966,5 @@ def create_visualization_tab():
             fn=refresh_defense_visualizations,
             inputs=[defense_file_dropdown],
             outputs=[defense_summary_md, defense_model_chart, defense_effectiveness_chart,
-                     defense_comparison_chart, defense_vs_attack_heatmap, defense_heatmap, defense_pie_chart, defense_summary_table]
+                     defense_comparison_chart, defense_vs_attack_heatmap, defense_matrix_chart, defense_heatmap, defense_pie_chart, defense_summary_table]
         )

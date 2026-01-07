@@ -906,7 +906,7 @@ Least Effective Attack: {summary.get('least_effective_attack', 'N/A')}
                         cbar_kws={'label': 'ASR (%)'}, linewidths=1.5,
                         ax=ax1, vmin=0, vmax=100, annot_kws={'size': 12, 'weight': 'bold'})
             ax1.set_title(
-                'Matrix: Injection Vector × Attack Objective', fontsize=14, pad=10)
+                'Injection Vector × Attack Objective', fontsize=14, pad=10)
             ax1.set_yticklabels(ax1.get_yticklabels(), rotation=0)
         else:
             ax1.text(0.5, 0.5, 'No matrix data available',

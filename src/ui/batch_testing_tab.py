@@ -276,9 +276,11 @@ def run_comparative_batch_test(
 
         # Define custom ordering for defense strategies
         defense_order = {
-            "Strong System-Prompt Prefixing": 1,
-            "Source Tagging/Quoting": 2,
-            "Output Filtering": 3,
+            "No Defense (Baseline)": 1,
+            "Strong System-Prompt Prefixing": 2,
+            "Source Tagging/Quoting": 3,
+            "Output Filtering": 4,
+            "Combined Defense (All Three)": 5,
         }
 
         # Calculate ASR per defense strategy

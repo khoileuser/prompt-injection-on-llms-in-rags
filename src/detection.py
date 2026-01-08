@@ -62,6 +62,9 @@ class GeminiDetector:
         self._results: Dict[int, AttackDetectionResult] = {}
         self._next_id = 0
 
+        # Cancellation flag
+        self._cancel_requested = False
+
     def is_configured(self) -> bool:
         """Check if the detector has an API key available."""
         return bool(self.api_key)
@@ -125,17 +128,33 @@ class GeminiDetector:
         """Get the result for a specific detection ID."""
         return self._results.get(detection_id)
 
-    def process_batch(self, batch_size: int = 10, max_retries: int = 3):
+    def request_cancel(self):
+        """Request cancellation of ongoing batch processing."""
+        self._cancel_requested = True
+        logger.info("Cancellation requested for batch processing")
+
+    def reset_cancel(self):
+        """Reset the cancellation flag."""
+        self._cancel_requested = False
+
+    def process_batch(self, batch_size: int = 10, max_retries: int = 3, progress_callback=None):
         """
         Process all pending detections in batches.
 
         Args:
             batch_size: Number of detections per API call
             max_retries: Maximum number of retries for rate-limited batches
+            progress_callback: Optional callback function(current, total, message) for progress updates
+
+        Returns:
+            bool: True if completed normally, False if cancelled
         """
+        # Reset cancel flag at start
+        self._cancel_requested = False
+
         if not self._pending:
             logger.info("No pending detections to process")
-            return
+            return True
 
         if not self._configure():
             # Mark all as error if API not configured
@@ -148,23 +167,71 @@ class GeminiDetector:
                     reasoning="Gemini API not configured"
                 )
             self._pending.clear()
-            return
+            return True
 
         total = len(self._pending)
         logger.info(
             f"Processing {total} pending detections in batches of {batch_size}")
 
         # Process in batches
+        total_batches = (total + batch_size - 1) // batch_size
+
         for i in range(0, total, batch_size):
+            # Check for cancellation
+            if self._cancel_requested:
+                logger.info(
+                    f"Batch processing cancelled at batch {i // batch_size + 1}")
+                # Mark remaining pending items as still pending
+                for j in range(i, len(self._pending)):
+                    item = self._pending[j]
+                    if item['id'] not in self._results:
+                        self._results[item['id']] = AttackDetectionResult(
+                            attack_id=item['attack'].id,
+                            attack_name=item['attack'].name,
+                            attack_category=item['category'],
+                            result=DetectionResult.PENDING,
+                            reasoning="Processing cancelled by user"
+                        )
+                # Clear pending queue even when cancelled
+                self._pending.clear()
+                logger.info("Pending queue cleared after cancellation")
+                return False
+
             batch = self._pending[i:i+batch_size]
+            batch_num = (i // batch_size) + 1
 
             # Retry logic for rate-limited batches
             retry_count = 0
             while retry_count <= max_retries:
+                # Check for cancellation during retries
+                if self._cancel_requested:
+                    logger.info(f"Batch processing cancelled during retry")
+                    # Clear pending queue
+                    self._pending.clear()
+                    logger.info(
+                        "Pending queue cleared after cancellation during retry")
+                    return False
+
+                # Update progress - show current batch being processed
+                if progress_callback:
+                    # Current batch being worked on (not yet complete)
+                    # Items completed before this batch
+                    progress_items = min(i, total)
+                    if retry_count == 0:
+                        progress_callback(
+                            progress_items, total, f"Processing batch {batch_num}/{total_batches}")
+                    else:
+                        progress_callback(
+                            progress_items, total, f"Retrying batch {batch_num}/{total_batches} (attempt {retry_count + 1}/{max_retries + 1})")
+
                 retry_delay = self._process_single_batch(batch)
 
                 if retry_delay is None:
-                    # Success, move to next batch
+                    # Success, update progress to show batch completed
+                    if progress_callback:
+                        completed_items = min(i + len(batch), total)
+                        progress_callback(
+                            completed_items, total, f"Completed batch {batch_num}/{total_batches}")
                     break
 
                 if retry_count < max_retries:
@@ -172,7 +239,19 @@ class GeminiDetector:
                     wait_time = retry_delay + 1.0
                     logger.info(
                         f"Retry {retry_count + 1}/{max_retries}: Waiting {wait_time}s before retrying batch")
-                    time.sleep(wait_time)
+
+                    # Check for cancellation during wait
+                    for _ in range(int(wait_time * 10)):  # Check every 0.1s
+                        if self._cancel_requested:
+                            logger.info(
+                                "Batch processing cancelled during retry wait")
+                            # Clear pending queue
+                            self._pending.clear()
+                            logger.info(
+                                "Pending queue cleared after cancellation during wait")
+                            return False
+                        time.sleep(0.1)
+
                     retry_count += 1
                 else:
                     # Max retries reached, give up on this batch
@@ -187,16 +266,37 @@ class GeminiDetector:
                     wait_time = max(retry_delay + 1.0, 5.0)
                     logger.info(
                         f"Waiting {wait_time}s before next batch (API retry delay)")
-                    time.sleep(wait_time)
+                    if progress_callback:
+                        progress_callback(
+                            i + len(batch), total, f"Rate limit delay ({wait_time:.1f}s)...")
                 else:
                     # Default wait to respect rate limits (15 RPM = 4s between requests)
                     wait_time = 4.0
                     logger.info(f"Waiting {wait_time}s before next batch")
-                    time.sleep(wait_time)
+                    if progress_callback:
+                        progress_callback(
+                            i + len(batch), total, f"Waiting between batches ({wait_time:.1f}s)...")
+
+                # Check for cancellation during wait
+                for _ in range(int(wait_time * 10)):  # Check every 0.1s
+                    if self._cancel_requested:
+                        logger.info(
+                            "Batch processing cancelled during batch wait")
+                        # Clear pending queue
+                        self._pending.clear()
+                        logger.info(
+                            "Pending queue cleared after cancellation during batch wait")
+                        return False
+                    time.sleep(0.1)
 
         self._pending.clear()
         logger.info(
             f"Batch processing complete. Processed {total} detections.")
+
+        if progress_callback:
+            progress_callback(total, total, "Batch processing complete")
+
+        return True
 
     def _process_single_batch(self, batch: List[Dict[str, Any]]) -> Optional[float]:
         """

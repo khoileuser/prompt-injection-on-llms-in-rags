@@ -69,7 +69,7 @@ def create_settings_tab():
                 gr.Markdown("#### Retry Error Detections")
                 gr.Markdown("""
 Select a CSV file from the results folder to retry error detections. 
-Only rows with `detection_result = "error"` will be reprocessed.
+Rows with `detection_result = "error"` or `"pending"` will be reprocessed.
 The original file will be updated with corrected detections.
 """)
 
@@ -119,25 +119,36 @@ The original file will be updated with corrected detections.
 
                 retry_btn = gr.Button(
                     "Retry Error Detections", variant="primary")
+                cancel_btn = gr.Button(
+                    "Cancel", variant="stop", visible=False)
                 retry_progress = gr.Markdown("")
 
-                def retry_error_detections(csv_filename, batch_size, max_retries):
+                # Shared state for cancellation
+                processing_state = {"is_processing": False}
+
+                def retry_error_detections(csv_filename, batch_size, max_retries, progress=gr.Progress()):
                     """Retry only the error detections from a CSV file."""
                     if not csv_filename or csv_filename == "No CSV files found":
-                        return "Please select a CSV file first."
+                        return "Please select a CSV file first.", gr.Button(visible=False)
 
                     detector = get_detector()
                     if not detector.is_configured():
-                        return "Gemini API not configured. Please set GEMINI_API_KEY."
+                        return "Gemini API not configured. Please set GEMINI_API_KEY.", gr.Button(visible=False)
+
+                    processing_state["is_processing"] = True
+                    detector.reset_cancel()  # Reset any previous cancel request
 
                     try:
                         # Construct full path
                         csv_path = Path("results") / csv_filename
 
                         if not csv_path.exists():
-                            return f"File not found: {csv_path}"
+                            processing_state["is_processing"] = False
+                            return f"File not found: {csv_path}", gr.Button(visible=False)
 
-                        # Read CSV and find error rows
+                        progress(0, desc="Reading CSV file...")
+
+                        # Read CSV and find error/pending rows
                         error_rows = []
                         all_rows = []
 
@@ -145,13 +156,16 @@ The original file will be updated with corrected detections.
                             reader = csv.DictReader(f)
                             for row in reader:
                                 all_rows.append(row)
-                                if row.get('detection_result', '').lower() == 'error':
+                                status = row.get(
+                                    'detection_result', '').lower()
+                                if status == 'error' or status == 'pending':
                                     error_rows.append(row)
 
                         if not error_rows:
-                            return f"No error detections found in the CSV. Total rows: {len(all_rows)}"
+                            processing_state["is_processing"] = False
+                            return f"No error or pending detections found in the CSV. Total rows: {len(all_rows)}", gr.Button(visible=False)
 
-                        yield f"Found {len(error_rows)} error detections out of {len(all_rows)} total rows. Starting retry..."
+                        yield f"Found {len(error_rows)} error/pending detections out of {len(all_rows)} total rows. Starting retry...", gr.Button(visible=True)
 
                         # Create a simple attack object for detection
                         class SimpleAttack:
@@ -159,9 +173,11 @@ The original file will be updated with corrected detections.
                                 self.id = attack_id
                                 self.name = name
 
+                        progress(0, desc="Adding errors to detection queue...")
+
                         # Add all errors to pending queue
                         detection_ids = []
-                        for row in error_rows:
+                        for idx, row in enumerate(error_rows):
                             attack = SimpleAttack(
                                 row.get('attack_id', 'unknown'),
                                 row.get('attack_name', 'Unknown Attack')
@@ -173,30 +189,50 @@ The original file will be updated with corrected detections.
                             )
                             detection_ids.append((det_id, row))
 
-                        yield f"Processing {len(error_rows)} detections in batches of {batch_size}..."
+                        total_batches = (
+                            len(error_rows) + int(batch_size) - 1) // int(batch_size)
+                        yield f"Processing {len(error_rows)} detections in {total_batches} batch(es) of {batch_size}...", gr.Button(visible=True)
+
+                        # Progress callback for batch processing
+                        def batch_progress_callback(current, total, message):
+                            # Progress from 0% to 90% during batch processing
+                            if total > 0:
+                                progress_pct = (current / total * 0.9)
+                            else:
+                                progress_pct = 0
+                            progress(progress_pct, desc=message)
 
                         # Process batch with configured settings
-                        detector.process_batch(
+                        completed = detector.process_batch(
                             batch_size=int(batch_size),
-                            max_retries=int(max_retries)
+                            max_retries=int(max_retries),
+                            progress_callback=batch_progress_callback
                         )
 
-                        yield f"Batch processing complete. Updating results..."
+                        was_cancelled = not completed
+
+                        progress(0.9, desc="Updating results...")
+                        yield f"Batch processing {'cancelled' if was_cancelled else 'complete'}. Updating results...", gr.Button(visible=True)
 
                         # Update the rows with new detection results
                         corrected_count = 0
                         still_error_count = 0
+                        pending_count = 0
 
-                        for det_id, original_row in detection_ids:
+                        for idx, (det_id, original_row) in enumerate(detection_ids):
                             result = detector.get_result(det_id)
                             if result:
                                 original_row['detection_result'] = result.result.value
                                 original_row['explanation'] = result.reasoning
 
-                                if result.result != DetectionResult.ERROR:
+                                if result.result == DetectionResult.PENDING:
+                                    pending_count += 1
+                                elif result.result != DetectionResult.ERROR:
                                     corrected_count += 1
                                 else:
                                     still_error_count += 1
+
+                        progress(0.95, desc="Writing results to file...")
 
                         # Overwrite the original CSV file
                         with open(csv_path, 'w', newline='', encoding='utf-8') as f:
@@ -206,25 +242,46 @@ The original file will be updated with corrected detections.
                                 writer.writeheader()
                                 writer.writerows(all_rows)
 
+                        progress(1.0, desc="Complete!")
+
+                        status = "Cancelled" if was_cancelled else "Complete"
                         summary = f"""
-**Retry Complete**
+**Retry {status}**
 
 - **File Updated:** `{csv_filename}`
 - **Total Rows:** {len(all_rows)}
-- **Error Rows Found:** {len(error_rows)}
+- **Error/Pending Rows Found:** {len(error_rows)}
 - **Successfully Corrected:** {corrected_count}
 - **Still Errors:** {still_error_count}
+- **Pending (Not Processed):** {pending_count}
 
-The original file has been updated with corrected detections.
+The file has been updated with {'partial' if was_cancelled else 'all'} corrected detections.
+{f'**Note:** {pending_count} items were not processed due to cancellation. Run retry again to process them.' if was_cancelled else ''}
+{f'**Note:** {still_error_count} items still have errors. Check the explanations for details.' if still_error_count > 0 and not was_cancelled else ''}
 """
-                        yield summary
+                        processing_state["is_processing"] = False
+                        yield summary, gr.Button(visible=False)
 
                     except Exception as e:
-                        yield f"Error during retry: {str(e)}"
+                        processing_state["is_processing"] = False
+                        yield f"Error during retry: {str(e)}", gr.Button(visible=False)
+
+                def cancel_processing():
+                    """Request cancellation of the current processing."""
+                    if processing_state["is_processing"]:
+                        detector = get_detector()
+                        detector.request_cancel()
+                        return "Cancellation requested. Waiting for current batch to complete...", gr.Button(visible=True)
+                    return "No processing in progress.", gr.Button(visible=False)
 
                 retry_btn.click(
                     fn=retry_error_detections,
                     inputs=[csv_file_dropdown, batch_size_input,
                             max_retries_input],
-                    outputs=[retry_progress]
+                    outputs=[retry_progress, cancel_btn]
+                )
+
+                cancel_btn.click(
+                    fn=cancel_processing,
+                    outputs=[retry_progress, cancel_btn]
                 )
